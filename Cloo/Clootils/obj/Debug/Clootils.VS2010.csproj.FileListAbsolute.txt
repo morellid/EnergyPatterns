@@ -1,0 +1,12 @@
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\bin\Debug\Cloo.dll.config
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\bin\Debug\Clootils.exe.config
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\bin\Debug\Clootils.exe
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\bin\Debug\Clootils.pdb
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\bin\Debug\Cloo.dll
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\bin\Debug\Cloo.pdb
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\bin\Debug\Cloo.xml
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\obj\Debug\Clootils.VS2010.csprojResolveAssemblyReference.cache
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\obj\Debug\Clootils.MainForm.resources
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\obj\Debug\Clootils.VS2010.csproj.GenerateResource.Cache
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\obj\Debug\Clootils.exe
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Clootils\obj\Debug\Clootils.pdb

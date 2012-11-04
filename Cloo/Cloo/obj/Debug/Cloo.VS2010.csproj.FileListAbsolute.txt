@@ -1,0 +1,7 @@
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Cloo\bin\Debug\Cloo.dll.config
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Cloo\bin\Debug\Cloo.dll
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Cloo\bin\Debug\Cloo.pdb
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Cloo\bin\Debug\Cloo.xml
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Cloo\obj\Debug\Cloo.VS2010.csprojResolveAssemblyReference.cache
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Cloo\obj\Debug\Cloo.dll
+C:\Users\Gabriele\Downloads\Cloo-0.9.1\Cloo\obj\Debug\Cloo.pdb

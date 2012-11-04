@@ -1,0 +1,8 @@
+Y:\Documents\Projects\EnergyPatterns\CodeRunner\bin\Debug\EnergyPatterns.XML
+Y:\Documents\Projects\EnergyPatterns\CodeRunner\bin\Debug\EnergyPatterns.dll
+Y:\Documents\Projects\EnergyPatterns\CodeRunner\bin\Debug\EnergyPatterns.pdb
+Y:\Documents\Projects\EnergyPatterns\CodeRunner\bin\Debug\FSharp.Core.dll
+Y:\Documents\Projects\EnergyPatterns\CodeRunner\bin\Debug\FSharp.Core.xml
+Y:\Documents\Projects\EnergyPatterns\CodeRunner\obj\Debug\CodeRunner.fsprojResolveAssemblyReference.cache
+Y:\Documents\Projects\EnergyPatterns\CodeRunner\obj\Debug\EnergyPatterns.dll
+Y:\Documents\Projects\EnergyPatterns\CodeRunner\obj\Debug\EnergyPatterns.pdb
