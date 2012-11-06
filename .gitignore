@@ -1,8 +1,8 @@
 .DS_Store
 *~
 *.swp
-**/bin
-**/obj
+*/bin/
+*/obj/
 *.exe
 *.pdb
 *.dll
