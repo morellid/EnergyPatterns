@@ -1,7 +1,0 @@
-Y:\Documents\Projects\EnergyPatterns\MetricUtil\bin\Debug\MetricUtil.XML
-Y:\Documents\Projects\EnergyPatterns\MetricUtil\bin\Debug\MetricUtil.dll
-Y:\Documents\Projects\EnergyPatterns\MetricUtil\bin\Debug\MetricUtil.pdb
-Y:\Documents\Projects\EnergyPatterns\MetricUtil\bin\Debug\FSharp.Core.dll
-Y:\Documents\Projects\EnergyPatterns\MetricUtil\bin\Debug\FSharp.Core.xml
-Y:\Documents\Projects\EnergyPatterns\MetricUtil\obj\Debug\MetricUtil.dll
-Y:\Documents\Projects\EnergyPatterns\MetricUtil\obj\Debug\MetricUtil.pdb
