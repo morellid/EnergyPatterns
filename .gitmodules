@@ -1,0 +1,3 @@
+[submodule "Energon"]
+	path = Energon
+	url = https://github.com/vslab/Energon.git
