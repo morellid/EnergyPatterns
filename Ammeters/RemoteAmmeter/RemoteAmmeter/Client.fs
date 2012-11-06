@@ -16,12 +16,9 @@ type Client(ip:string) =
         with 
             | _ -> "KO"
     member x.stop(par:seq<string>) =
-        let sb = new System.Text.StringBuilder()
-        sb.AppendFormat(@"{0}/stop", address) |> ignore
-        par |> Seq.iter (fun s -> sb.AppendFormat(@"/{0}", System.Web.HttpUtility.UrlEncode(s)) |> ignore)
-        let addr = sb.ToString()
+        let addr = System.String.Format(@"{0}/{1}", address, "stop")
         try
-            wc.DownloadString(addr)
+            wc.DownloadString(addr) 
         with 
             | _ -> "KO"
 

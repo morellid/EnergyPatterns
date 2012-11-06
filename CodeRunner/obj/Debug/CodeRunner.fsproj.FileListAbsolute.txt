@@ -6,3 +6,12 @@ Y:\Documents\Projects\EnergyPatterns\CodeRunner\bin\Debug\FSharp.Core.xml
 Y:\Documents\Projects\EnergyPatterns\CodeRunner\obj\Debug\CodeRunner.fsprojResolveAssemblyReference.cache
 Y:\Documents\Projects\EnergyPatterns\CodeRunner\obj\Debug\EnergyPatterns.dll
 Y:\Documents\Projects\EnergyPatterns\CodeRunner\obj\Debug\EnergyPatterns.pdb
+C:\Users\root\Desktop\EnergyPatterns\CodeRunner\bin\Debug\EnergyPatterns.XML
+C:\Users\root\Desktop\EnergyPatterns\CodeRunner\bin\Debug\EnergyPatterns.dll
+C:\Users\root\Desktop\EnergyPatterns\CodeRunner\bin\Debug\EnergyPatterns.pdb
+C:\Users\root\Desktop\EnergyPatterns\CodeRunner\bin\Debug\FSharp.Core.dll
+C:\Users\root\Desktop\EnergyPatterns\CodeRunner\bin\Debug\FSharp.Core.xml
+C:\Users\root\Desktop\EnergyPatterns\CodeRunner\bin\Debug\en\FSharp.Core.resources.dll
+C:\Users\root\Desktop\EnergyPatterns\CodeRunner\obj\Debug\CodeRunner.fsprojResolveAssemblyReference.cache
+C:\Users\root\Desktop\EnergyPatterns\CodeRunner\obj\Debug\EnergyPatterns.dll
+C:\Users\root\Desktop\EnergyPatterns\CodeRunner\obj\Debug\EnergyPatterns.pdb
