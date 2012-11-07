@@ -10,13 +10,10 @@ type ProfilingResult<'T>(value:'T) =
 type EvaluationResult<'T>(value:'T) =
     member this.Result with get() = value
 
-type Metric<'T> =
-    abstract member Evaluate: Expr -> EvaluationResult<'T>
-    
 type RelativeMetric<'T,'U,'Z> =
-    inherit Metric<'T> 
-    abstract member Profile: ProfilingDevice<'Z> * ProfilingDevice<'Z> -> ProfilingResult<'U>
+    abstract member Evaluate: ProfilingResult<'U> * Expr -> EvaluationResult<'Z>
+    abstract member Profile: ProfilingDevice<'T> * ProfilingDevice<'T> -> ProfilingResult<'U>
     
 type AbsoluteMetric<'T,'U,'Z> =
-    inherit Metric<'T> 
-    abstract member Profile: ProfilingDevice<'Z> -> ProfilingResult<'U>
+    abstract member Evaluate: ProfilingResult<'U> * Expr -> EvaluationResult<'Z>
+    abstract member Profile: ProfilingDevice<'T> -> ProfilingResult<'U>
