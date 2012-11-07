@@ -3,6 +3,9 @@
 
 open FSCL
 
+[<Kernel>]
+
+
 [<EntryPoint>]
 let main argv = 
     let t = new FSCL.OpenCLVector4D()

@@ -46,6 +46,7 @@
     <Compile Include="TypeProvidersUtil.fs" />
     <Compile Include="VectorTypeUtil.fs" />
     <Compile Include="VectorTypeProvider.fs" />
+    <Compile Include="KernelAttribute.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
