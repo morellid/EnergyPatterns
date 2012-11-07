@@ -4,10 +4,16 @@
 open FSCL
 
 [<Kernel>]
-
+[<ReflectedDefinition>]
+let VectorAdd(a: float[], b: float[], c: float[]) =
+    let gid = fscl.get_global_id(0)
+    c.[gid] <- a.[gid] + b.[gid]
 
 [<EntryPoint>]
-let main argv = 
+let main argv =
+
+    // Testing vector types
+    (*
     let t = new FSCL.OpenCLVector4D()
     t.s0
     t.xw <- [| 0.; 1. |]
@@ -15,5 +21,5 @@ let main argv =
     let g = t.even
     let g2 = t.odd
     printfn "%A" argv
-    
+    *)
     0 // return an integer exit code
