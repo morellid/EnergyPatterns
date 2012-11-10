@@ -41,7 +41,9 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Library1.fs" />
+    <Compile Include="InstructionCountEstimator.fs" />
+    <Compile Include="KernelBuilder.fs" />
+    <Compile Include="InstructionEnergyMetric.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>
   <ItemGroup>

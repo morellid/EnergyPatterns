@@ -1,24 +1,18 @@
 ﻿
 open Microsoft.FSharp.Quotations
-type FuncType = 
-| A of (int -> int -> int)
-| B
-| C
 
 [<ReflectedDefinition>]
 let add x y = x + y
 
-
-let myFunc1 = A (fun x y -> x + y )
-let myFunc2 = A add 
-
-let thefunc expr = 
+let rec analyse expr =
     match expr with
-    | A(x) ->
-        <@ x @>
-    | _ ->
-        failwith "fail"
-
-printfn "%A" (thefunc myFunc1) // prints "Value (<fun:myFunc1@14>)"
-printfn "%A" (thefunc myFunc2) // prints "Value (<fun:myFunc2@15>)"
-printfn "%A" <@ fun x y -> x + y @> // generates usable expression tree
+    | Patterns.Lambda(v, e) -> 
+        printf("Lambda\n")
+        analyse e
+    | Patterns.Call (e, i, a) ->
+        match i with
+        | DerivedPatterns.MethodWithReflectedDefinition (b) ->
+            printf("Found reflected body\n")
+        | _ ->
+            printf("No reflected body\n")
+    | _-> printf("")

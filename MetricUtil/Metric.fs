@@ -1,5 +1,6 @@
 ﻿namespace MetricUtil
 open Microsoft.FSharp.Quotations
+open System.Reflection
 
 type ProfilingDevice<'T>(value:'T) =
     member this.Device with get() = value
