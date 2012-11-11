@@ -8,11 +8,9 @@ open Cloo
 
 [<Kernel>]
 [<ReflectedDefinition>]
-let VectorAdd(a: float[], b: float[], c: float[]) =
+let VectorAdd(a: float[], b: float[], c: float[], mult: float) =
     let gid = fscl.get_global_id(0)
-    for i = 0 to a.Length do
-        printf ""
-    c.[gid] <- a.[gid] + b.[gid]
+    c.[gid] <- mult * (a.[gid] + b.[gid])
 
 [<EntryPoint>]
 let main argv =
@@ -22,8 +20,16 @@ let main argv =
     metric.Step <- 100
     metric.PerStepDuration <- 20000
     metric.ThreadCount <- 2048L
+    
+    let b = Array.create 10 10.0
+    let c = Array.create 10 10.0
+    let count = 9
 
-    (metric :> AbsoluteMetric<ComputeDevice, EnergyFunction, double>).Evaluate([], System.Reflection.MethodBase.
+    let m = metric :> AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyInstantiationResult>
+    let energyLambda = m.Evaluate(new ProfilingResult<EnergyProfilingResult>([]), <@ VectorAdd @>)
+    let instructions = m.Instantiate(energyLambda, [ <@ (Array.create 10 10.0) @>; <@ b @>; <@ c @>; <@ 2.0 @> ])
+    printf "Number of instruction in the kernel (args = a, b, c): %f\n" 0.0
+
     // Testing vector types
     (*
     let t = new FSCL.OpenCLVector4D()

@@ -2,7 +2,14 @@
 open Microsoft.FSharp.Quotations
 
 [<ReflectedDefinition>]
-let add x y = x + y
+let add = 
+    <@@ 
+        fun x y ->
+            let mutable b = 0
+            b <- 1
+            b <- 2
+            b
+    @@>
 
 let rec analyse expr =
     match expr with

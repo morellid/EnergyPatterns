@@ -1,0 +1,36 @@
+﻿namespace InstructionEnergyMetric
+
+open Microsoft.FSharp.Quotations
+
+module InstructionEnergyMetricUtil =
+
+    let GetOperatorMethodInfo expr =
+        let rec getOpMethodInfo expr =
+            match expr with
+            | Patterns.Lambda (v, e) ->
+                getOpMethodInfo e
+            | DerivedPatterns.SpecificCall <@ (+) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (-) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (*) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (/) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (%) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (&&) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (||) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (&&&) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (|||) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (^^^) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (~-) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (~+) @> (e, t, a) ->
+                match expr with 
+                | Patterns.Call (e, i, l) ->
+                    Some(i)
+                | _ ->
+                    None
+            | _ ->
+                None
+
+        getOpMethodInfo(expr)
+    
+

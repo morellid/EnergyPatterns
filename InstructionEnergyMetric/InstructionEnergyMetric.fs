@@ -4,9 +4,12 @@ open MetricUtil
 open Cloo
 open Microsoft.FSharp.Quotations
 open System
+open Microsoft.FSharp.Reflection
+// The below one needs PowerPack :(
+open Microsoft.FSharp.Linq.QuotationEvaluation
 
-type EnergyProfilingFunction = (int * double) list
-type EnergyEvaluationResult = obj
+type EnergyProfilingResult = (int * double) list
+type EnergyInstantiationResult = double
 
 type InstructionEnergyMetric() =
     let mutable min_instr = 1
@@ -35,7 +38,7 @@ type InstructionEnergyMetric() =
         with get() = thread_count
         and set count = thread_count <- count
 
-    interface AbsoluteMetric<ComputeDevice, EnergyProfilingFunction, EnergyEvaluationResult> with
+    interface AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyInstantiationResult> with
         member this.Profile(device) =
             // Setup CL
             let computePlatform = device.Device.Platform;
@@ -77,25 +80,22 @@ type InstructionEnergyMetric() =
                     computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
                     computeQueue.Finish()
             
-            new ProfilingResult<EnergyProfilingFunction>([])
+            new ProfilingResult<EnergyProfilingResult>([])
             
         member this.Evaluate(profiling, expr:Expr) =
-            let rec extractKernel expr =
-                match expr with
-                | Patterns.Lambda(v, e) -> 
-                    extractKernel e
-                | Patterns.Call (e, i, a) ->
-                    match i with
-                    | DerivedPatterns.MethodWithReflectedDefinition(b) ->
-                        Some(i)
-                    | _ ->
-                        None
-                | _-> 
-                    None
-
-            let kernel = extractKernel(expr)
+            let kernel = MetricTools.ExtractKernel(expr)
             if kernel.IsSome then
-                new EvaluationResult<EnergyEvaluationResult>(InstructionCountEstimator.EstimateInstructionCount(kernel.Value))
+                let count = InstructionCountEstimator.EstimateInstructionCount(kernel.Value)
+                if (count.IsSome) then
+                    count.Value
+                else
+                    raise (MetricEvaluationError("Cannot evaluate instruction count\n"))
             else
                 raise (MetricEvaluationError("Kernel function cannot be found. Make sure the function is annotated with ReflectedDefinition attribute\n"))
-
+                
+        member this.Instantiate(evaluation, args) =
+            // Evaluation is something like "let a in let b in ... let z in <compute instruction>"
+            // To compute instructions we apply lambda
+            let application = List.fold (fun (lambda:Expr) (arg:obj) -> Expr.Application(lambda, arg :?> Expr)) evaluation args 
+            let result = application.EvalUntyped()
+            new InstantiationResult<double>(result :?> double)

@@ -5,12 +5,12 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>74339ed3-11f9-477a-a8cb-30b881bf81ea</ProjectGuid>
+    <ProjectGuid>73a2c781-678f-4a48-92de-1e4e04a7b6ba</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>InstructionEnergyMetric</RootNamespace>
-    <AssemblyName>InstructionEnergyMetric</AssemblyName>
+    <RootNamespace>QuotationEvaluator</RootNamespace>
+    <AssemblyName>QuotationEvaluator</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>InstructionEnergyMetric</Name>
+    <Name>QuotationEvaluator</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -20,7 +20,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\InstructionEnergyMetric.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\QuotationEvaluator.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,12 +29,9 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\InstructionEnergyMetric.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\QuotationEvaluator.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="FSharp.PowerPack.Linq">
-      <HintPath>..\FSharp.PowerPack.Linq.dll</HintPath>
-    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
@@ -44,22 +41,9 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="InstructionCountEstimator.fs" />
-    <Compile Include="KernelBuilder.fs" />
-    <Compile Include="InstructionEnergyMetric.fs" />
+    <Compile Include="TypeProviderUtil.fs" />
+    <Compile Include="QuotationEvaluator.fs" />
     <None Include="Script.fsx" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
-      <Name>Cloo.VS2010</Name>
-      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\MetricUtil\MetricUtil.fsproj">
-      <Name>MetricUtil</Name>
-      <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
-      <Private>True</Private>
-    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
