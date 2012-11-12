@@ -41,9 +41,9 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Exception.fs" />
     <Compile Include="Metric.fs" />
     <None Include="Script.fsx" />
-    <Compile Include="Exception.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

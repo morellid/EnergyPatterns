@@ -8,4 +8,7 @@ type MetricEvaluationError(msg: string) =
 type MetricProfilingError(msg: string) =
     inherit Exception(msg)
 
+type MalformedKernelError(msg: string) =
+    inherit Exception(msg)
+
 

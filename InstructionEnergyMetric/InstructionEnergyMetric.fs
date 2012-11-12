@@ -83,19 +83,29 @@ type InstructionEnergyMetric() =
             new ProfilingResult<EnergyProfilingResult>([])
             
         member this.Evaluate(profiling, expr:Expr) =
-            let kernel = MetricTools.ExtractKernel(expr)
-            if kernel.IsSome then
-                let count = InstructionCountEstimator.EstimateInstructionCount(kernel.Value)
-                if (count.IsSome) then
-                    count.Value
-                else
-                    raise (MetricEvaluationError("Cannot evaluate instruction count\n"))
+            let kernel = MetricTools.ExtractKernelDefinition(expr)
+            let count = InstructionCountEstimator.EstimateInstructionCount(kernel)
+            if (count.IsSome) then
+                count.Value
             else
-                raise (MetricEvaluationError("Kernel function cannot be found. Make sure the function is annotated with ReflectedDefinition attribute\n"))
+                raise (MetricEvaluationError("Cannot evaluate instruction count\n"))
                 
-        member this.Instantiate(evaluation, args) =
-            // Evaluation is something like "let a in let b in ... let z in <compute instruction>"
-            // To compute instructions we apply lambda
-            let application = List.fold (fun (lambda:Expr) (arg:obj) -> Expr.Application(lambda, arg :?> Expr)) evaluation args 
-            let result = application.EvalUntyped()
+        member this.Instantiate(evaluation, invocation) =
+            // Evaluation is something like "<compute instruction>"
+            // To compute instructions we bind the variables that are free in <compute instruction>
+            let (methodInfo, args) = MetricTools.ExtractKernelInvocation(invocation)
+            let parameters = methodInfo.GetParameters()
+            let freeVars = Seq.toList (evaluation.GetFreeVars())
+
+            let findByName name vl =
+                List.tryFind (fun (v: Var) -> v.Name = name) vl
+
+            let mutable finalExpr =  evaluation
+            for i = 0 to args.Length - 1 do
+                let freeVar = findByName (parameters.[i].Name) freeVars
+                if freeVar.IsSome then
+                    finalExpr <- Expr.Let(freeVar.Value, args.[i], finalExpr)
+                                           
+            let result = finalExpr.EvalUntyped()
             new InstantiationResult<double>(result :?> double)
+            

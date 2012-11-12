@@ -4,13 +4,22 @@ open Microsoft.FSharp.Quotations
 open System.Reflection
 open Microsoft.FSharp.Reflection
 open MetricUtil
+open Microsoft.FSharp.Linq.QuotationEvaluation
 
 module InstructionCountEstimator =   
     // Checks if vars in an expression referes exclusively the parameters contained in a list
+    let plusMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ (+) @>, typeof<double>)
+    let multMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ (*) @>, typeof<double>)
+    let subMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ (-) @>, typeof<double>)
+    let greatMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ (>) @>, typeof<double>)
+
     let rec refersOnly (expr:Expr, pars:ParameterInfo[]) =
         match expr with
         | ExprShape.ShapeCombination (o, e) ->
-            e |> List.map (fun exp -> refersOnly (exp, p)) |> List.reduce (fun a b -> a && b)
+            if e.IsEmpty then
+                true
+            else
+                e |> List.map (fun exp -> refersOnly (exp, pars)) |> List.reduce (fun a b -> a && b)
         | ExprShape.ShapeLambda (v, e) ->
             if ((Array.filter (fun (p:ParameterInfo) -> p.Name = v.Name && v.Type = p.ParameterType) pars).Length = 0) then
                 false
@@ -19,11 +28,6 @@ module InstructionCountEstimator =
         | ExprShape.ShapeVar (v) ->
            (Array.filter (fun (p:ParameterInfo) -> p.Name = v.Name && v.Type = p.ParameterType) pars).Length <> 0
                          
-    let plusMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ 1.0 + 1.0 @>)
-    let multMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ 1.0 * 1.0 @>)
-    let subMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ 1.0 - 1.0 @>)
-    let greatMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ 1.0 > 1.0 @>)
-
     let rec Estimate (expr: Expr, args: ParameterInfo[]) =
         match expr with        
         | Patterns.Call(e, i, a) ->
@@ -46,12 +50,13 @@ module InstructionCountEstimator =
             // Check that startv is an expression of constants and fers to parameters
             if (refersOnly(startv, args) && refersOnly(endv, args)) then
                 let subexpr = Estimate(body, args)
-                <@@
-                    if (%%startv > %%endv) then
-                        (%%startv - %%endv) * %%subexpr
-                    else
-                        (%%endv - %%startv) * %%subexpr
-                @@>
+                let e = <@@
+                            if ((%%startv : int) > (%%endv : int)) then
+                                ((double)((%%startv : int) - (%%endv : int) + 1)) * (%%subexpr + 1.0)
+                            else
+                                ((double)((%%endv : int) - (%%startv : int) + 1)) * (%%subexpr + 1.0)
+                        @@>
+                e
             else
                 raise (MetricEvaluationError("Cannot determine the loop count based on constants and function parameters"))
 
@@ -208,38 +213,23 @@ module InstructionCountEstimator =
             null
     
     // Removes (0+0+0+0+0+) useless counts in the expression
-    let rec CleanInstructionCount (expr) =
-        match expr with
-        | Patterns.Let (v, e, b) ->
-            CleanInstructionCount(e)
-        | Patterns.Call(e, i, [f; s]) ->  
-            match f, s with
-            | Patterns.Value(v1, t1), Patterns.Value(v2, t2) ->
-                if ((v1 :?> float) = 0.0) && ((v2 :?> float) = 0.0) then
-                    Expr.Value(0.0)
+    let rec CleanInstructionCount (expr: Expr) =
+        if (Seq.isEmpty (expr.GetFreeVars())) then
+            let value = expr.EvalUntyped() :?> double
+            <@ value @> :> Expr
+        else
+            match expr with
+            | Patterns.Lambda (v, e) ->
+                Expr.Lambda(v, CleanInstructionCount(e))
+            | Patterns.Let (v, e, b) ->
+                Expr.Let(v, CleanInstructionCount(e), CleanInstructionCount(b))
+            | Patterns.Call(e, i, [f; s]) ->  
+                if (e.IsSome) then 
+                    Expr.Call(CleanInstructionCount(e.Value), i, List.map (fun el -> CleanInstructionCount(el)) [f; s])
                 else
-                    if ((v1 :?> float) = 0.0) then
-                        s
-                    else 
-                        if ((v2 :?> float) = 0.0) then
-                            f
-                        else
-                            expr
-            | Patterns.Value(v1, t1), _ ->
-                if ((v1 :?> float) = 0.0) then
-                    CleanInstructionCount(s)
-                else
-                    Expr.Call(i, [f; CleanInstructionCount(s)])
-            | _, Patterns.Value(v2, t2) ->
-                if ((v2 :?> float) = 0.0) then
-                    CleanInstructionCount(f)
-                else
-                    Expr.Call(i, [CleanInstructionCount(f); s])
-            | _, _ ->
-                Expr.Call(i, [CleanInstructionCount(f); CleanInstructionCount(s) ])
-        | _ ->
-            expr
-
+                    Expr.Call(i, List.map (fun el -> CleanInstructionCount(el)) [f; s])
+            | _ ->
+                expr
     
     let EstimateInstructionCount (meth: MethodBase) =
         let args = meth.GetParameters()
@@ -248,31 +238,7 @@ module InstructionCountEstimator =
             // Create a lambda to evaluate instruction count
             let lambdaBody = Estimate(b, args)
             let lc = CleanInstructionCount(lambdaBody)
-
-            let finalExpr = Array.foldBack(fun (arg:ParameterInfo) currExpr ->
-                Expr.Lambda(Quotations.Var(arg.Name, arg.ParameterType), currExpr)) args lambdaBody
-            
-            (*
-            // Find correct tuple type for arguments (any more clean way?)
-            let argTypes = Array.map (fun (p:ParameterInfo) -> p.ParameterType) args
-            let tupleType = FSharpType.MakeTupleType(argTypes)
-
-            // Now build lambda
-            let mutable finalExpr = lambdaBody
-            for arg_index = args.Length - 1 downto 0 do
-                finalExpr <- Expr.Let(
-                                    Quotations.Var(
-                                        args.[arg_index].Name,
-                                        args.[arg_index].ParameterType),
-                                    Expr.TupleGet(
-                                        Expr.Var(
-                                            Quotations.Var("tupledArg", tupleType)),
-                                        arg_index),
-                                    finalExpr)
-            // Prepend lambda
-            finalExpr <- Expr.Lambda(Quotations.Var("tupledArg", tupleType), finalExpr) *)
-            Some(finalExpr)
-
+            Some(lc)
         | _ ->
             None
 
