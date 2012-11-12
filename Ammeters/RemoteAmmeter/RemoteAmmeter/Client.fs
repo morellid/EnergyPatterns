@@ -15,7 +15,7 @@ type Client(ip:string) =
             wc.DownloadString(addr) 
         with 
             | _ -> "KO"
-    member x.stop(par:seq<string>) =
+    member x.stop() =
         let addr = System.String.Format(@"{0}/{1}", address, "stop")
         try
             wc.DownloadString(addr) 
