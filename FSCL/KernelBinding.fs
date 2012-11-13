@@ -19,6 +19,8 @@ type KernelBinding() =
             match expr with
             | Patterns.Let(variable, value, body) ->
                 KernelBinding.ConvertType(variable.Type) + " " + variable.Name + " = " + analyzeAndPrettyPrint(value) + ";\n" + analyzeAndPrettyPrint(body)
+            | Patterns.WhileLoop (condition, body) ->
+                "while(" + analyzeAndPrettyPrint(condition) + ") {\n" + analyzeAndPrettyPrint(body) + "\n}\n"
             | Patterns.ForIntegerRangeLoop(variable, startexpr, endexpr, body) ->
                 "for(" + KernelBinding.ConvertType(variable.Type) + " " + variable.Name + " = " + analyzeAndPrettyPrint(startexpr) + "; " + variable.Name + " <= " + analyzeAndPrettyPrint(endexpr) + ";" + variable.Name + "++)\n{" + analyzeAndPrettyPrint(body) + "\n}\n"
             | Patterns.IfThenElse(condition, ifbranch, elsebranch) ->
