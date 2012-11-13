@@ -43,9 +43,6 @@
   <ItemGroup>
     <Compile Include="FSCL.fs" />
     <None Include="Script.fsx" />
-    <Compile Include="TypeProvidersUtil.fs" />
-    <Compile Include="VectorTypeUtil.fs" />
-    <Compile Include="VectorTypeProvider.fs" />
     <Compile Include="KernelAttribute.fs" />
     <Compile Include="KernelBinding.fs" />
     <Compile Include="FSCLPatterns.fs" />

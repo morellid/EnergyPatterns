@@ -14,7 +14,7 @@ let MatrixMult(a: float[,], b: float[,], c: float[,]) =
         for j = 0 to b.GetLength(1) - 1 do
             let mutable accum = 0.0
             for k = 0 to a.GetLength(1) - 1 do
-                 accum <- accum + (a.[i,k] * c.[k,j])
+                 accum <- accum + (a.[i ,k] * c.[k,j])
             c.[i,j] <- accum
 
 [<Kernel>]
@@ -22,6 +22,15 @@ let MatrixMult(a: float[,], b: float[,], c: float[,]) =
 let VectorAdd(a: float[], b: float[], c: float[], mult: float) =
     let gid = fscl.get_global_id(0)
     c.[gid] <- mult * (a.[gid] + b.[gid])
+        
+[<Kernel>]
+[<ReflectedDefinition>]
+let SimpleKernel(a: float32, b: float32, c: float32, mult: float32) =
+    let t = 10.0f
+    let mutable accum = 0.0f
+    while (t > 0.0f) do
+        accum <- mult + accum + t
+     
 
 [<EntryPoint>]
 let main argv =
@@ -31,6 +40,11 @@ let main argv =
     metric.Step <- 100
     metric.PerStepDuration <- 20000
     metric.ThreadCount <- 2048L
+
+    // Test prettyPrinting
+    let str = FSCL.KernelBinding.ConvertToCLKernel(<@ SimpleKernel @>)
+    printf "Converted kernel:\n%s" str
+
     (*
     let b = Array.create 10 10.0
     let c = Array.create 10 10.0
