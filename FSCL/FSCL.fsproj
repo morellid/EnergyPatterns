@@ -41,12 +41,14 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="fscl.fs" />
+    <Compile Include="FSCL.fs" />
     <None Include="Script.fsx" />
     <Compile Include="TypeProvidersUtil.fs" />
     <Compile Include="VectorTypeUtil.fs" />
     <Compile Include="VectorTypeProvider.fs" />
     <Compile Include="KernelAttribute.fs" />
+    <Compile Include="KernelBinding.fs" />
+    <Compile Include="FSCLPatterns.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
