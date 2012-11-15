@@ -28,8 +28,8 @@ let VectorAdd(a: float[], b: float[], c: float[], mult: float) =
 let SimpleKernel(a: float32, b: float32, c: float32, mult: float32) =
     let t = 10.0f
     let mutable accum = 0.0f
-    while (t > 0.0f) do
-        accum <- mult + accum + t
+    while (t > 0.0f && accum < 1000.0f) do
+        accum <- mult + accum * t / 2.0f
      
 
 [<EntryPoint>]

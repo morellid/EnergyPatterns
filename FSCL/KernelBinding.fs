@@ -14,17 +14,39 @@ type KernelBinding() =
             "double"
         elif (t = typeof<float32>) then
             "float"
+        elif (t = typeof<bool>) then
+            "bool"
         else
             raise (KernelBindingException("Invalid type used in kernel function " + t.ToString()))
          
 
     static member ConvertToCLKernel (expr: Expr) =
         let rec analyzeAndPrettyPrintCall (expr) =
+            let binaryOp op (a:Expr list) =
+                analyzeAndPrettyPrint(a.[0]) + op + analyzeAndPrettyPrint(a.[1])
+            let unaryOp op (a:Expr list) =
+                op + analyzeAndPrettyPrint(a.[0])
             match expr with
-            | DerivedPatterns.SpecificCall <@ (>) @> (e, t, a) ->
-                analyzeAndPrettyPrint(a.[0]) + " > " + analyzeAndPrettyPrint(a.[1])
-            | DerivedPatterns.SpecificCall <@ (+) @> (e, t, a) ->
-               analyzeAndPrettyPrint(a.[0]) + " + " + analyzeAndPrettyPrint(a.[1])
+            | DerivedPatterns.SpecificCall <@ (>) @> (e, t, a) -> binaryOp ">" a // relational operators
+            | DerivedPatterns.SpecificCall <@ (<) @> (e, t, a) -> binaryOp "<" a
+            | DerivedPatterns.SpecificCall <@ (>=) @> (e, t, a) -> binaryOp ">=" a
+            | DerivedPatterns.SpecificCall <@ (<=) @> (e, t, a) -> binaryOp "<=" a
+            | DerivedPatterns.SpecificCall <@ (=) @> (e, t, a) -> binaryOp "==" a
+            | DerivedPatterns.SpecificCall <@ (<>) @> (e, t, a) -> binaryOp "!=" a
+            | DerivedPatterns.SpecificCall <@ (+) @> (e, t, a) -> binaryOp "+" a  // aritmetic operators
+            | DerivedPatterns.SpecificCall <@ (*) @> (e, t, a) -> binaryOp "*" a
+            | DerivedPatterns.SpecificCall <@ (-) @> (e, t, a) -> binaryOp "-" a
+            | DerivedPatterns.SpecificCall <@ (/) @> (e, t, a) -> binaryOp "/" a
+            | DerivedPatterns.SpecificCall <@ (%) @> (e, t, a) -> binaryOp "%" a
+            | DerivedPatterns.SpecificCall <@ (&&) @> (e, t, a) -> binaryOp "&&" a // logical operators
+            | DerivedPatterns.SpecificCall <@ (||) @> (e, t, a) -> binaryOp "||" a
+            | DerivedPatterns.SpecificCall <@ (&&&) @> (e, t, a) -> binaryOp "&" a  // bitwise operators
+            | DerivedPatterns.SpecificCall <@ (|||) @> (e, t, a) -> binaryOp "|" a
+            | DerivedPatterns.SpecificCall <@ (^^^) @> (e, t, a) -> binaryOp "^" a
+            | DerivedPatterns.SpecificCall <@ (~~~) @> (e, t, a) -> binaryOp "~" a
+            | DerivedPatterns.SpecificCall <@ (not) @> (e, t, a) -> unaryOp "!" a // unary
+            | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) -> binaryOp ">>" a // shift
+            | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) -> binaryOp "<<" a
             | _ ->
                 raise (KernelBindingException("Invalid operator used in kernel function " + expr.ToString()))  
 
