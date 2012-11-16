@@ -1,5 +1,7 @@
 ﻿namespace FSCL
 
+open Cloo
+
 module fscl =
     let get_global_id(dim:int) = 
         0
@@ -23,5 +25,9 @@ module fscl =
     type size_t = Int
     type half = Double
     type ulong = Long
+    
+
+        
+        
 
         
