@@ -23,9 +23,9 @@ type KernelBinding() =
     static member ConvertToCLKernel (expr: Expr) =
         let rec analyzeAndPrettyPrintCall (expr) =
             let binaryOp op (a:Expr list) =
-                analyzeAndPrettyPrint(a.[0]) + op + analyzeAndPrettyPrint(a.[1])
+                analyzeAndPrettyPrint(a.[0], false) + op + analyzeAndPrettyPrint(a.[1], false)
             let unaryOp op (a:Expr list) =
-                op + analyzeAndPrettyPrint(a.[0])
+                op + analyzeAndPrettyPrint(a.[0], false)
             match expr with
             | DerivedPatterns.SpecificCall <@ (>) @> (e, t, a) -> binaryOp ">" a // relational operators
             | DerivedPatterns.SpecificCall <@ (<) @> (e, t, a) -> binaryOp "<" a
@@ -50,25 +50,27 @@ type KernelBinding() =
             | _ ->
                 raise (KernelBindingException("Invalid operator used in kernel function " + expr.ToString()))  
 
-        and analyzeAndPrettyPrint expr =
+        and analyzeAndPrettyPrint(expr, cond) =
             match expr with
             | Patterns.Var (v) ->
                 v.Name
             | Patterns.VarSet(variable, value) ->
-                variable.Name + " = " + analyzeAndPrettyPrint(value) + ";\n"
+                variable.Name + " = " + analyzeAndPrettyPrint(value, false) + ";\n"
             | Patterns.Call(e, i, args) ->
                 analyzeAndPrettyPrintCall (expr)
             | Patterns.Value (v, ty) ->
                 let t = KernelBinding.ConvertType(ty)
                 v.ToString()
             | Patterns.Let(variable, value, body) ->
-                KernelBinding.ConvertType(variable.Type) + " " + variable.Name + " = " + analyzeAndPrettyPrint(value) + ";\n" + analyzeAndPrettyPrint(body)
+                KernelBinding.ConvertType(variable.Type) + " " + variable.Name + " = " + analyzeAndPrettyPrint(value, false) + ";\n" + analyzeAndPrettyPrint(body, false)
             | Patterns.WhileLoop (condition, body) ->
-                "while(" + analyzeAndPrettyPrint(condition) + ") {\n" + analyzeAndPrettyPrint(body) + "\n}\n"
+                "while(" + analyzeAndPrettyPrint(condition, true) + ") {\n" + analyzeAndPrettyPrint(body, false) + "\n}\n"
             | Patterns.ForIntegerRangeLoop(variable, startexpr, endexpr, body) ->
-                "for(" + KernelBinding.ConvertType(variable.Type) + " " + variable.Name + " = " + analyzeAndPrettyPrint(startexpr) + "; " + variable.Name + " <= " + analyzeAndPrettyPrint(endexpr) + ";" + variable.Name + "++)\n{" + analyzeAndPrettyPrint(body) + "\n}\n"
+                "for(" + KernelBinding.ConvertType(variable.Type) + " " + variable.Name + " = " + analyzeAndPrettyPrint(startexpr, false) + "; " + variable.Name + " <= " + analyzeAndPrettyPrint(endexpr, true) + ";" + variable.Name + "++)\n{" + analyzeAndPrettyPrint(body, false) + "\n}\n"
             | Patterns.IfThenElse(condition, ifbranch, elsebranch) ->
-                "if(" + analyzeAndPrettyPrint(condition) + ") {\n" + analyzeAndPrettyPrint(ifbranch) + "}\nelse {\n" + analyzeAndPrettyPrint(elsebranch) + "\n}\n"
+                match cond with
+                | false -> "if(" + analyzeAndPrettyPrint(condition, true) + ") {\n" + analyzeAndPrettyPrint(ifbranch, false) + "}\nelse {\n" + analyzeAndPrettyPrint(elsebranch, false) + "\n}\n"
+                | true ->  analyzeAndPrettyPrint(condition, true) + "&&" + analyzeAndPrettyPrint(ifbranch, false)
             | _ -> 
                 raise (KernelBindingException("Unrecognized expression in kernel function " + expr.ToString()))
                 
@@ -115,7 +117,7 @@ type KernelBinding() =
                     | DerivedPatterns.MethodWithReflectedDefinition(b) ->
                         let prettyArgs = String.concat ", " (Seq.ofList (List.map (fun arg -> analyzeAndPrettyPrintArg(arg)) a))
                         let cleanBody = liftArgExtraction(b, i.GetParameters())
-                        "kernel " + i.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + "\n}\n"
+                        "kernel " + i.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody, false) + "\n}\n"
                     | _ ->
                         ""
                 | _ ->  
