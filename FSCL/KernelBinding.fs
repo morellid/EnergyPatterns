@@ -21,11 +21,38 @@ type KernelBinding() =
          
 
     static member ConvertToCLKernel (expr: Expr) =
-        let rec analyzeAndPrettyPrintCall (expr) =
+        let rec liftAndOrOperator expr =
+            match expr with
+            | Patterns.IfThenElse(condinner, ifbinner, elsebinner) ->
+                match ifbinner with
+                | Patterns.Value(o, t) ->
+                    if(t = typeof<bool>) then
+                        if (o :?> bool) then
+                            Some(analyzeAndPrettyPrint(condinner) + " || " + analyzeAndPrettyPrint(elsebinner))
+                        else
+                            None
+                    else
+                        None
+                | _ ->
+                    match elsebinner with  
+                    | Patterns.Value(o, t) ->
+                        if(t = typeof<bool>) then   
+                            if (not (o :?> bool)) then
+                                Some(analyzeAndPrettyPrint(condinner) + " && " + analyzeAndPrettyPrint(ifbinner))
+                            else
+                                None
+                        else
+                            None      
+                    | _ ->
+                    None      
+            | _ ->
+                None                     
+                                
+        and analyzeAndPrettyPrintCall (expr) =
             let binaryOp op (a:Expr list) =
-                analyzeAndPrettyPrint(a.[0], false) + op + analyzeAndPrettyPrint(a.[1], false)
+                analyzeAndPrettyPrint(a.[0]) + op + analyzeAndPrettyPrint(a.[1])
             let unaryOp op (a:Expr list) =
-                op + analyzeAndPrettyPrint(a.[0], false)
+                op + analyzeAndPrettyPrint(a.[0])
             match expr with
             | DerivedPatterns.SpecificCall <@ (>) @> (e, t, a) -> binaryOp " > " a // relational operators
             | DerivedPatterns.SpecificCall <@ (<) @> (e, t, a) -> binaryOp " < " a
@@ -50,29 +77,31 @@ type KernelBinding() =
             | _ ->
                 raise (KernelBindingException("Invalid operator used in kernel function " + expr.ToString()))  
 
-        and analyzeAndPrettyPrint(expr, cond) =
+        and analyzeAndPrettyPrint(expr) =
             match expr with
             | Patterns.Var (v) ->
                 v.Name
             | Patterns.VarSet(variable, value) ->
-                variable.Name + " = " + analyzeAndPrettyPrint(value, false) + ";\n"
+                variable.Name + " = " + analyzeAndPrettyPrint(value) + ";\n"
             | Patterns.Call(e, i, args) ->
                 analyzeAndPrettyPrintCall (expr)
             | Patterns.Value (v, ty) ->
                 let t = KernelBinding.ConvertType(ty)
                 v.ToString()
             | Patterns.Let(variable, value, body) ->
-                KernelBinding.ConvertType(variable.Type) + " " + variable.Name + " = " + analyzeAndPrettyPrint(value, false) + ";\n" + analyzeAndPrettyPrint(body, false)
+                KernelBinding.ConvertType(variable.Type) + " " + variable.Name + " = " + analyzeAndPrettyPrint(value) + ";\n" + analyzeAndPrettyPrint(body)
             | Patterns.WhileLoop (condition, body) ->
-                "while(" + analyzeAndPrettyPrint(condition, true) + ") {\n" + analyzeAndPrettyPrint(body, false) + "\n}\n"
+                "while(" + analyzeAndPrettyPrint(condition) + ") {\n" + analyzeAndPrettyPrint(body) + "\n}\n"
             | Patterns.ForIntegerRangeLoop(variable, startexpr, endexpr, body) ->
-                "for(" + KernelBinding.ConvertType(variable.Type) + " " + variable.Name + " = " + analyzeAndPrettyPrint(startexpr, false) + "; " + variable.Name + " <= " + analyzeAndPrettyPrint(endexpr, true) + ";" + variable.Name + "++)\n{" + analyzeAndPrettyPrint(body, false) + "\n}\n"
+                "for(" + KernelBinding.ConvertType(variable.Type) + " " + variable.Name + " = " + analyzeAndPrettyPrint(startexpr) + "; " + variable.Name + " <= " + analyzeAndPrettyPrint(endexpr) + ";" + variable.Name + "++)\n{" + analyzeAndPrettyPrint(body) + "\n}\n"
             | Patterns.IfThenElse(condition, ifbranch, elsebranch) ->
-                match cond with
-                | false -> "if(" + analyzeAndPrettyPrint(condition, true) + ") {\n" + analyzeAndPrettyPrint(ifbranch, false) + "}\nelse {\n" + analyzeAndPrettyPrint(elsebranch, false) + "\n}\n"
-                | true ->  analyzeAndPrettyPrint(condition, true) + " && " + analyzeAndPrettyPrint(ifbranch, false)
+                let checkBoolOp = liftAndOrOperator(expr)
+                if checkBoolOp.IsSome then
+                    checkBoolOp.Value
+                else
+                    "if(" + analyzeAndPrettyPrint(condition) + ") {\n" + analyzeAndPrettyPrint(ifbranch) + "}\nelse {\n" + analyzeAndPrettyPrint(elsebranch) + "\n}\n"
             | Patterns.Sequential(expr1, expr2) ->
-                analyzeAndPrettyPrint(expr1, false)  + ";\n" + analyzeAndPrettyPrint(expr2, false)  + ";\n"
+                analyzeAndPrettyPrint(expr1)  + ";\n" + analyzeAndPrettyPrint(expr2)  + ";\n"
             | _ -> 
                 raise (KernelBindingException("Unrecognized expression in kernel function " + expr.ToString()))
                 
@@ -117,13 +146,14 @@ type KernelBinding() =
                 | Patterns.Call (e, i, a) -> 
                     match i with
                     | DerivedPatterns.MethodWithReflectedDefinition(b) ->
+                        let paramArgs = List.zip ((i.GetParameters()) |> List.ofArray) a
                         let prettyArgs = String.concat ", " (Seq.ofList (List.map (fun arg -> analyzeAndPrettyPrintArg(arg)) a))
                         let cleanBody = liftArgExtraction(b, i.GetParameters())
-                        "kernel " + i.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody, false) + "\n}\n"
+                        Some("kernel " + i.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + "\n}\n", paramArgs)
                     | _ ->
-                        ""
+                        None
                 | _ ->  
-                    ""
+                    None
         prettyPrint
                 
                 

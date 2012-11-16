@@ -26,7 +26,12 @@ let VectorAdd(a: float[], b: float[], c: float[], mult: float) =
 [<Kernel>]
 [<ReflectedDefinition>]
 let foo(a: float32) =
-    a + 1.0f
+    let a = true
+    let b = false
+    if(a && b && (4 > 2)) then
+        5
+    else
+        4
 
 [<Kernel>]
 [<ReflectedDefinition>]
@@ -48,8 +53,8 @@ let main argv =
     metric.ThreadCount <- 2048L
 
     // Test prettyPrinting
-    let str = FSCL.KernelBinding.ConvertToCLKernel(<@ SimpleKernel @>)
-    printf "Converted kernel:\n%s" str
+    let str = FSCL.KernelBinding.ConvertToCLKernel(<@ foo @>)
+    printf "Converted kernel:\n%s" (fst(str.Value))
 
     (*
     let b = Array.create 10 10.0
