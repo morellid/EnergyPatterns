@@ -27,26 +27,26 @@ type KernelBinding() =
             let unaryOp op (a:Expr list) =
                 op + analyzeAndPrettyPrint(a.[0], false)
             match expr with
-            | DerivedPatterns.SpecificCall <@ (>) @> (e, t, a) -> binaryOp ">" a // relational operators
-            | DerivedPatterns.SpecificCall <@ (<) @> (e, t, a) -> binaryOp "<" a
-            | DerivedPatterns.SpecificCall <@ (>=) @> (e, t, a) -> binaryOp ">=" a
-            | DerivedPatterns.SpecificCall <@ (<=) @> (e, t, a) -> binaryOp "<=" a
-            | DerivedPatterns.SpecificCall <@ (=) @> (e, t, a) -> binaryOp "==" a
-            | DerivedPatterns.SpecificCall <@ (<>) @> (e, t, a) -> binaryOp "!=" a
-            | DerivedPatterns.SpecificCall <@ (+) @> (e, t, a) -> binaryOp "+" a  // aritmetic operators
-            | DerivedPatterns.SpecificCall <@ (*) @> (e, t, a) -> binaryOp "*" a
-            | DerivedPatterns.SpecificCall <@ (-) @> (e, t, a) -> binaryOp "-" a
-            | DerivedPatterns.SpecificCall <@ (/) @> (e, t, a) -> binaryOp "/" a
-            | DerivedPatterns.SpecificCall <@ (%) @> (e, t, a) -> binaryOp "%" a
-            | DerivedPatterns.SpecificCall <@ (&&) @> (e, t, a) -> binaryOp "&&" a // logical operators
-            | DerivedPatterns.SpecificCall <@ (||) @> (e, t, a) -> binaryOp "||" a
-            | DerivedPatterns.SpecificCall <@ (&&&) @> (e, t, a) -> binaryOp "&" a  // bitwise operators
-            | DerivedPatterns.SpecificCall <@ (|||) @> (e, t, a) -> binaryOp "|" a
-            | DerivedPatterns.SpecificCall <@ (^^^) @> (e, t, a) -> binaryOp "^" a
-            | DerivedPatterns.SpecificCall <@ (~~~) @> (e, t, a) -> binaryOp "~" a
-            | DerivedPatterns.SpecificCall <@ (not) @> (e, t, a) -> unaryOp "!" a // unary
-            | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) -> binaryOp ">>" a // shift
-            | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) -> binaryOp "<<" a
+            | DerivedPatterns.SpecificCall <@ (>) @> (e, t, a) -> binaryOp " > " a // relational operators
+            | DerivedPatterns.SpecificCall <@ (<) @> (e, t, a) -> binaryOp " < " a
+            | DerivedPatterns.SpecificCall <@ (>=) @> (e, t, a) -> binaryOp " >= " a
+            | DerivedPatterns.SpecificCall <@ (<=) @> (e, t, a) -> binaryOp " <= " a
+            | DerivedPatterns.SpecificCall <@ (=) @> (e, t, a) -> binaryOp " == " a
+            | DerivedPatterns.SpecificCall <@ (<>) @> (e, t, a) -> binaryOp " != " a
+            | DerivedPatterns.SpecificCall <@ (+) @> (e, t, a) -> binaryOp " + " a  // aritmetic operators
+            | DerivedPatterns.SpecificCall <@ (*) @> (e, t, a) -> binaryOp " * " a
+            | DerivedPatterns.SpecificCall <@ (-) @> (e, t, a) -> binaryOp " - " a
+            | DerivedPatterns.SpecificCall <@ (/) @> (e, t, a) -> binaryOp " / " a
+            | DerivedPatterns.SpecificCall <@ (%) @> (e, t, a) -> binaryOp " % " a
+            | DerivedPatterns.SpecificCall <@ (&&) @> (e, t, a) -> binaryOp " && " a // logical operators
+            | DerivedPatterns.SpecificCall <@ (||) @> (e, t, a) -> binaryOp " || " a
+            | DerivedPatterns.SpecificCall <@ (&&&) @> (e, t, a) -> binaryOp " & " a  // bitwise operators
+            | DerivedPatterns.SpecificCall <@ (|||) @> (e, t, a) -> binaryOp " | " a
+            | DerivedPatterns.SpecificCall <@ (^^^) @> (e, t, a) -> binaryOp " ^ " a
+            | DerivedPatterns.SpecificCall <@ (~~~) @> (e, t, a) -> binaryOp " ~ " a
+            | DerivedPatterns.SpecificCall <@ (not) @> (e, t, a) -> unaryOp " ! " a // unary
+            | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) -> binaryOp " >> " a // shift
+            | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) -> binaryOp " << " a
             | _ ->
                 raise (KernelBindingException("Invalid operator used in kernel function " + expr.ToString()))  
 
@@ -70,7 +70,9 @@ type KernelBinding() =
             | Patterns.IfThenElse(condition, ifbranch, elsebranch) ->
                 match cond with
                 | false -> "if(" + analyzeAndPrettyPrint(condition, true) + ") {\n" + analyzeAndPrettyPrint(ifbranch, false) + "}\nelse {\n" + analyzeAndPrettyPrint(elsebranch, false) + "\n}\n"
-                | true ->  analyzeAndPrettyPrint(condition, true) + "&&" + analyzeAndPrettyPrint(ifbranch, false)
+                | true ->  analyzeAndPrettyPrint(condition, true) + " && " + analyzeAndPrettyPrint(ifbranch, false)
+            | Patterns.Sequential(expr1, expr2) ->
+                analyzeAndPrettyPrint(expr1, false)  + ";\n" + analyzeAndPrettyPrint(expr2, false)  + ";\n"
             | _ -> 
                 raise (KernelBindingException("Unrecognized expression in kernel function " + expr.ToString()))
                 
