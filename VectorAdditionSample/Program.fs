@@ -57,10 +57,8 @@ let main argv =
     metric.ThreadCount <- 2048L
 
     // Test prettyPrinting
-    let str = FSCL.KernelBinding.ConvertToCLKernel(<@ bar @>)
-    let (s,l,i) = str.Value
-    printf "Converted kernel:\n%s" (fst(s,l))
-
+    let (str, a, mi) = (FSCL.KernelBinding.ConvertToCLKernel(<@ VectorAdd @>)).Value
+    printf "%s" str
     (*
     let b = Array.create 10 10.0
     let c = Array.create 10 10.0

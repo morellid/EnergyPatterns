@@ -1,8 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "CodeRunner", "CodeRunner\CodeRunner.fsproj", "{1D71BF53-4858-438A-BA49-763C45E21378}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MetricUtil", "MetricUtil\MetricUtil.fsproj", "{A329E02A-C967-4F11-99BF-CF6C16A009AF}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ComputationDensityMetric", "ComputationDensityMetric\ComputationDensityMetric.fsproj", "{5BA7E39A-A915-4397-A611-0C0C00A860DD}"
@@ -27,16 +25,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{1D71BF53-4858-438A-BA49-763C45E21378}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1D71BF53-4858-438A-BA49-763C45E21378}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1D71BF53-4858-438A-BA49-763C45E21378}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
-		{1D71BF53-4858-438A-BA49-763C45E21378}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
-		{1D71BF53-4858-438A-BA49-763C45E21378}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{1D71BF53-4858-438A-BA49-763C45E21378}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1D71BF53-4858-438A-BA49-763C45E21378}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1D71BF53-4858-438A-BA49-763C45E21378}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
-		{1D71BF53-4858-438A-BA49-763C45E21378}.Release|Mixed Platforms.Build.0 = Release|Any CPU
-		{1D71BF53-4858-438A-BA49-763C45E21378}.Release|x86.ActiveCfg = Release|Any CPU
 		{A329E02A-C967-4F11-99BF-CF6C16A009AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A329E02A-C967-4F11-99BF-CF6C16A009AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A329E02A-C967-4F11-99BF-CF6C16A009AF}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
