@@ -16,11 +16,20 @@ type KernelBinding() =
             "float"
         elif (t = typeof<bool>) then
             "bool"
+        elif (t = typeof<int[]>) then
+            "int *"
+        elif (t = typeof<int[,]>) then
+            "int **"
+        elif (t = typeof<int[,,]>) then
+            "int ***"
         else
             raise (KernelBindingException("Invalid type used in kernel function " + t.ToString()))
          
 
     static member ConvertToCLKernel (expr: Expr) =
+        
+        let liftCallArgument (a:Expr) =
+            " "        
         let rec liftAndOrOperator expr =
             match expr with
             | Patterns.IfThenElse(condinner, ifbinner, elsebinner) ->
@@ -74,6 +83,8 @@ type KernelBinding() =
             | DerivedPatterns.SpecificCall <@ (not) @> (e, t, a) -> unaryOp " ! " a // unary
             | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) -> binaryOp " >> " a // shift
             | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) -> binaryOp " << " a
+            | Patterns.Call(e,i,l) -> 
+                "TODO GetLength" 
             | _ ->
                 raise (KernelBindingException("Invalid operator used in kernel function " + expr.ToString()))  
 
@@ -109,6 +120,8 @@ type KernelBinding() =
             match expr with
             | Patterns.Var (v) ->
                 KernelBinding.ConvertType(v.Type) + " " + v.Name
+            | Patterns.Call(e,i,a) ->
+                liftCallArgument expr
             | _ ->
                 raise (KernelBindingException("Unrecognized parameter expression in kernel function " + expr.ToString()))
 
@@ -123,7 +136,7 @@ type KernelBinding() =
                 else
                     expr
             | _ ->
-                raise (KernelBindingException("Unrecognized parameter expression in kernel function " + expr.ToString()))
+                expr
 
         let rec getKernelDefinition (expr) =
             match expr with
@@ -149,7 +162,7 @@ type KernelBinding() =
                         let paramArgs = List.zip ((i.GetParameters()) |> List.ofArray) a
                         let prettyArgs = String.concat ", " (Seq.ofList (List.map (fun arg -> analyzeAndPrettyPrintArg(arg)) a))
                         let cleanBody = liftArgExtraction(b, i.GetParameters())
-                        Some("kernel " + i.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + "\n}\n", paramArgs)
+                        Some("kernel " + i.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + "\n}\n", paramArgs, i)
                     | _ ->
                         None
                 | _ ->  
