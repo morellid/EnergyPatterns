@@ -13,7 +13,7 @@ type KernelRunner() =
     static member Run(expr: Expr, globalSize, localSize) =
         let kernel = KernelBinding.ConvertToCLKernel(expr)
         match kernel with
-        | Some(kernelSource, args) ->
+        | Some(kernelSource, args, i) ->
             // Something should be moved in global scope
             let platform = ComputePlatform.Platforms.[0]
             let device = platform.Devices.[0]
