@@ -22,6 +22,24 @@ type KernelBinding() =
             "int **"
         elif (t = typeof<int[,,]>) then
             "int ***"
+        elif (t = typeof<double[]>) then
+            "double *"
+        elif (t = typeof<double[,]>) then
+            "double **"
+        elif (t = typeof<double[,,]>) then
+            "double ***"
+        elif (t = typeof<float32[]>) then
+            "float *"
+        elif (t = typeof<float32[,]>) then
+            "float **"
+        elif (t = typeof<float32[,,]>) then
+            "float ***"
+        elif (t = typeof<bool[]>) then
+            "bool *"
+        elif (t = typeof<bool[,]>) then
+            "bool **"
+        elif (t = typeof<bool[,,]>) then
+            "bool ***"
         else
             raise (KernelBindingException("Invalid type used in kernel function " + t.ToString()))
          
