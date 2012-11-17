@@ -7,6 +7,19 @@ type KernelBindingException(msg: string) =
     inherit Exception(msg)
 
 type KernelBinding() =
+    static member private BuildArrayLengthAdditionalArg (name:string) (n:obj) =
+         String.Format("{0}_length_{1}", name, n.ToString())
+
+    static member private BuildArrayLengthAdditionalArgs (name:string) (n:int) =
+        String.concat ", int " (List.init n (KernelBinding.BuildArrayLengthAdditionalArg name))
+        
+
+    static member private FindDimensionalityOfArray (t:Type) =
+        // Any better way to do this?
+        let dimensionsString = t.FullName.Split([| '['; ']' |]).[1]
+        let dimensions = ref 1
+        String.iter (fun c -> if (c = ',') then dimensions := !dimensions + 1) dimensionsString
+        !dimensions
 
     static member private ConvertType(t: Type) =
         let rec ConvertTypeInner(t: Type) =
@@ -19,11 +32,8 @@ type KernelBinding() =
             elif (t = typeof<bool>) then
                 "bool"
             elif (t.IsArray) then
-                // Any better way to do this?
-                let dimensionsString = t.FullName.Split([| '['; ']' |]).[1]
-                let dimensions = ref 1
-                String.iter (fun c -> if (c = ',') then dimensions := !dimensions + 1) dimensionsString
-                ConvertTypeInner(t.GetElementType()) + (String.replicate !dimensions "*")
+                let dimensions = KernelBinding.FindDimensionalityOfArray(t)
+                ConvertTypeInner(t.GetElementType()) + (String.replicate dimensions "*")
             else
                 raise (KernelBindingException("Invalid type used in kernel function " + t.ToString()))
         
@@ -119,7 +129,7 @@ type KernelBinding() =
                                 else
                                     let first = l.[0]
                                     match first with
-                                    | Patterns.Value(v, ty) -> ary.Name + "_length" + v.ToString()
+                                    | Patterns.Value(v, ty) -> KernelBinding.BuildArrayLengthAdditionalArg ary.Name v//ary.Name + "_length" + v.ToString()
                                     | _ -> raiseExc()
                                     
                             | _ -> raiseExc()                              
@@ -161,7 +171,8 @@ type KernelBinding() =
             | Patterns.Var (v) ->
                 // If type is array, prepend global keyword
                 if v.Type.IsArray then
-                    "global " + KernelBinding.ConvertType(v.Type) + " " + v.Name
+                    let dimensions = KernelBinding.FindDimensionalityOfArray(v.Type)
+                    "global " + KernelBinding.ConvertType(v.Type) + " " + v.Name + ", int " + KernelBinding.BuildArrayLengthAdditionalArgs v.Name dimensions
                 else
                     KernelBinding.ConvertType(v.Type) + " " + v.Name
             | Patterns.Call(e,i,a) ->
