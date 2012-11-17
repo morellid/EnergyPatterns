@@ -62,7 +62,7 @@ type KernelBinding() =
                                 
         and analyzeAndPrettyPrintCall (expr) =
             let binaryOp op (a:Expr list) =
-                analyzeAndPrettyPrint(a.[0]) + op + analyzeAndPrettyPrint(a.[1])
+                "(" + analyzeAndPrettyPrint(a.[0]) + ")" + op + "(" + analyzeAndPrettyPrint(a.[1]) + ")"
             let unaryOp op (a:Expr list) =
                 op + analyzeAndPrettyPrint(a.[0])
             match expr with
@@ -87,7 +87,28 @@ type KernelBinding() =
             | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) -> binaryOp " >> " a // shift
             | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) -> binaryOp " << " a
             | Patterns.Call(e,i,l) -> 
-                "TODO GetLength" 
+                if i.DeclaringType.Name = "fscl" then
+                    // the function is defined in FSCL
+                    let args = String.concat ", " (List.map (analyzeAndPrettyPrint) l)
+                    i.Name + "(" + args + ")"
+                else
+                    if i.DeclaringType.Name = "IntrinsicFunctions" then
+                        if i.Name = "GetArray" then
+                            l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "]"
+                        elif i.Name = "GetArray2D" then
+                            l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "]"
+                        elif i.Name = "GetArray2D" then
+                            l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "][" + analyzeAndPrettyPrint(l.[3]) + "]"
+                        elif i.Name = "SetArray" then
+                            l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "] = " + analyzeAndPrettyPrint(l.[2])
+                        elif i.Name = "SetArray2D" then
+                            l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "]=" + analyzeAndPrettyPrint(l.[3])
+                        elif i.Name = "SetArray3D" then
+                            l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "][" + analyzeAndPrettyPrint(l.[3]) + "]=" + analyzeAndPrettyPrint(l.[4])
+                        else
+                            raise (KernelBindingException("Invalid operator " + i.Name + " used in kernel function " + expr.ToString()))
+                    else
+                        raise (KernelBindingException("Invalid operator " + i.Name + " used in kernel function " + expr.ToString()))
             | _ ->
                 raise (KernelBindingException("Invalid operator used in kernel function " + expr.ToString()))  
 
