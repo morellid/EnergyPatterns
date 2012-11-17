@@ -122,7 +122,11 @@ type KernelBinding() =
         let rec analyzeAndPrettyPrintArg expr =
             match expr with
             | Patterns.Var (v) ->
-                KernelBinding.ConvertType(v.Type) + " " + v.Name
+                // If type is array, prepend global keyword
+                if v.Type.IsArray then
+                    "global " + KernelBinding.ConvertType(v.Type) + " " + v.Name
+                else
+                    KernelBinding.ConvertType(v.Type) + " " + v.Name
             | Patterns.Call(e,i,a) ->
                 liftCallArgument expr
             | _ ->
