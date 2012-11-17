@@ -217,7 +217,7 @@ type KernelBinding() =
                         let paramArgs = List.zip ((i.GetParameters()) |> List.ofArray) a
                         let prettyArgs = String.concat ", " (Seq.ofList (List.map (fun arg -> analyzeAndPrettyPrintArg(arg)) a))
                         let cleanBody = liftArgExtraction(b, i.GetParameters())
-                        Some("kernel " + i.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + "\n}\n", paramArgs, i)
+                        Some("kernel " + i.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + ";\n}\n", paramArgs, i)
                     | _ ->
                         None
                 | _ ->  

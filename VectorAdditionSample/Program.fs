@@ -43,7 +43,7 @@ let SimpleKernel(a: float32, b: float32, c: float32, mult: float32) =
 
 [<Kernel>]
 [<ReflectedDefinition>]
-let bar(a: int[]) =
+let bar(a: int[], b: int[,]) =
     a.GetLength(0)       
 
 [<EntryPoint>]
@@ -56,7 +56,7 @@ let main argv =
     metric.ThreadCount <- 2048L
 
     // Test prettyPrinting
-    let (str, a, mi) = (FSCL.KernelBinding.ConvertToCLKernel(<@ VectorAdd @>)).Value
+    let (str, a, mi) = (FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)).Value
     printf "%s" str
     (*
     let b = Array.create 10 10.0
