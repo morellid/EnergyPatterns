@@ -19,9 +19,9 @@ let MatrixMult(a: float[,], b: float[,], c: float[,]) =
 
 [<Kernel>]
 [<ReflectedDefinition>]
-let VectorAdd(a: float[], b: float[], c: float[], mult: float) =
+let VectorAdd(a: float[], b: float[], c: float[], mult: float[,]) =
     let gid = fscl.get_global_id(0)
-    c.[gid] <- mult * (a.[gid] + b.[gid])
+    c.[gid] <- mult.[0,0] * (a.[gid] + b.[gid])
 
 [<Kernel>]
 [<ReflectedDefinition>]

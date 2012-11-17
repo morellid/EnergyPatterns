@@ -7,42 +7,27 @@ type KernelBindingException(msg: string) =
     inherit Exception(msg)
 
 type KernelBinding() =
+
     static member private ConvertType(t: Type) =
-        if (t = typeof<int>) then
-            "int"            
-        elif (t = typeof<double>) then
-            "double"
-        elif (t = typeof<float32>) then
-            "float"
-        elif (t = typeof<bool>) then
-            "bool"
-        elif (t = typeof<int[]>) then
-            "int *"
-        elif (t = typeof<int[,]>) then
-            "int **"
-        elif (t = typeof<int[,,]>) then
-            "int ***"
-        elif (t = typeof<double[]>) then
-            "double *"
-        elif (t = typeof<double[,]>) then
-            "double **"
-        elif (t = typeof<double[,,]>) then
-            "double ***"
-        elif (t = typeof<float32[]>) then
-            "float *"
-        elif (t = typeof<float32[,]>) then
-            "float **"
-        elif (t = typeof<float32[,,]>) then
-            "float ***"
-        elif (t = typeof<bool[]>) then
-            "bool *"
-        elif (t = typeof<bool[,]>) then
-            "bool **"
-        elif (t = typeof<bool[,,]>) then
-            "bool ***"
-        else
-            raise (KernelBindingException("Invalid type used in kernel function " + t.ToString()))
-         
+        let rec ConvertTypeInner(t: Type) =
+            if (t = typeof<int>) then
+                "int"            
+            elif (t = typeof<double>) then
+                "double"
+            elif (t = typeof<float32>) then
+                "float"
+            elif (t = typeof<bool>) then
+                "bool"
+            elif (t.IsArray) then
+                // Any better way to do this?
+                let dimensionsString = t.FullName.Split([| '['; ']' |]).[1]
+                let dimensions = ref 1
+                String.iter (fun c -> if (c = ',') then dimensions := !dimensions + 1) dimensionsString
+                ConvertTypeInner(t.GetElementType()) + (String.replicate !dimensions "*")
+            else
+                raise (KernelBindingException("Invalid type used in kernel function " + t.ToString()))
+        
+        ConvertTypeInner(t)
 
     static member ConvertToCLKernel (expr: Expr) =
         
