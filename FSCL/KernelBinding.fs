@@ -87,6 +87,7 @@ type KernelBinding() =
             | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) -> binaryOp " >> " a // shift
             | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) -> binaryOp " << " a
             | Patterns.Call(e,i,l) -> 
+                let raiseExc() = raise (KernelBindingException("Invalid operator used in kernel function " + expr.ToString()))
                 if i.DeclaringType.Name = "fscl" then
                     // the function is defined in FSCL
                     let args = String.concat ", " (List.map (analyzeAndPrettyPrint) l)
@@ -106,9 +107,24 @@ type KernelBinding() =
                         elif i.Name = "SetArray3D" then
                             l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "][" + analyzeAndPrettyPrint(l.[3]) + "]=" + analyzeAndPrettyPrint(l.[4])
                         else
-                            raise (KernelBindingException("Invalid operator " + i.Name + " used in kernel function " + expr.ToString()))
+                            raiseExc()
+                    elif i.DeclaringType.Name = "Array" && i.Name = "GetLength" then
+                        match e with
+                        | None -> raiseExc()
+                        | Some(t) -> 
+                            match t with
+                            | Patterns.Var(ary) -> 
+                                if l.Length < 1 then
+                                    raiseExc()
+                                else
+                                    let first = l.[0]
+                                    match first with
+                                    | Patterns.Value(v, ty) -> ary.Name + "_length" + v.ToString()
+                                    | _ -> raiseExc()
+                                    
+                            | _ -> raiseExc()                              
                     else
-                        raise (KernelBindingException("Invalid operator " + i.Name + " used in kernel function " + expr.ToString()))
+                        raiseExc()
             | _ ->
                 raise (KernelBindingException("Invalid operator used in kernel function " + expr.ToString()))  
 
