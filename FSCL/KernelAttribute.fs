@@ -18,8 +18,8 @@ type KernelAttribute =
     }
 
     member this.Platform 
-        with get() = if(this.dev.IsSome) then platform.Value else -1
+        with get() = if(this.platform.IsSome) then this.platform.Value else -1
     member this.Device
-        with get() = if(this.dev.IsSome) then snd(this.dev.Value) else -1
+        with get() = if(this.dev.IsSome) then this.dev.Value else -1
 
 

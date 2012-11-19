@@ -46,6 +46,7 @@
     <Compile Include="KernelAttribute.fs" />
     <Compile Include="KernelBinding.fs" />
     <Compile Include="FSCLPatterns.fs" />
+    <Compile Include="FSCLUtil.fs" />
     <Compile Include="KernelRunner.fs" />
   </ItemGroup>
   <ItemGroup>
