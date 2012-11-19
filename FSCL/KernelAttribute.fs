@@ -5,17 +5,20 @@ open System
 type KernelAttribute =
     inherit Attribute
 
-    val dev : (int * int) option
+    val platform: int option
+    val dev : int option
 
-    new(device: (int * int)) =  { 
-        dev = Some(device) 
+    new(p: int, d: int) =  { 
+        platform = Some(p)
+        dev = Some(d) 
     }
     new() =  { 
-        dev = None 
+        platform = None
+        dev = None
     }
 
     member this.Platform 
-        with get() = if(this.dev.IsSome) then fst(this.dev.Value) else -1
+        with get() = if(this.dev.IsSome) then platform.Value else -1
     member this.Device
         with get() = if(this.dev.IsSome) then snd(this.dev.Value) else -1
 
