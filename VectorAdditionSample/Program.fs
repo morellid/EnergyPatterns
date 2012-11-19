@@ -7,7 +7,6 @@ open MetricUtil
 open Cloo
 open Microsoft.FSharp.Collections
 
-[<Kernel>]
 [<ReflectedDefinition>]
 let MatrixMult(a: float[,], b: float[,], c: float[,]) =
     for i = 0 to a.GetLength(0) - 1 do
@@ -19,11 +18,10 @@ let MatrixMult(a: float[,], b: float[,], c: float[,]) =
 
 [<Kernel>]
 [<ReflectedDefinition>]
-let VectorAdd(a: float[], b: float[], c: float[], mult: float[,]) =
+let VectorAdd(a: float32[], b: float32[], c: float32[]) =
     let gid = fscl.get_global_id(0)
-    c.[gid] <- mult.[0,0] * (a.[gid] + b.[gid])
+    c.[gid] <- (a.[gid] + b.[gid])
 
-[<Kernel>]
 [<ReflectedDefinition>]
 let foo(a: float32, b: float32) =
     let ab = true
@@ -41,12 +39,6 @@ let SimpleKernel(a: float32, b: float32, c: float32, mult: float32) =
     while (t > 0.0f && accum < 1000.0f) do
         accum <- mult + accum * t / 2.0f
 
-[<Kernel>]
-[<ReflectedDefinition>]
-let bar(a: int[]) =
-    //a.GetLength(0)       
-    1
-
 [<EntryPoint>]
 let main argv =
     let metric = new InstructionEnergyMetric()
@@ -59,7 +51,7 @@ let main argv =
     let data = KernelRunner.Init()
 
     // Test prettyPrinting
-    let (str, a, mi) = (FSCL.KernelBinding.ConvertToCLKernel(<@ VectorAdd @>)).Value
+    let (str, a) = (FSCL.KernelBinding.ConvertToCLKernel(<@ VectorAdd @>)).Value
     printf "%s" str
     (*
     let b = Array.create 10 10.0

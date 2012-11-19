@@ -48,6 +48,7 @@ type KernelRunner() =
         if kernelIndex.IsNone then
             // Store kernel
             globalData.Kernels <- globalData.Kernels @ [ new FSCLKernelData(kernel) ]
+            kernelIndex <- Some(globalData.Kernels.Length - 1)
         let kernelData = globalData.Kernels.[kernelIndex.Value]
 
         // Check if device already stored
@@ -62,14 +63,21 @@ type KernelRunner() =
             deviceIndex <- Some(globalData.Devices.Length)
             let deviceData = new FSCLDeviceData(device, computeContext, computeQueue)
             globalData.Devices <- globalData.Devices @ [ deviceData ]
+            deviceIndex <- Some(globalData.Kernels.Length - 1)
            
         // Bind the kernel to the device storing appropriate kernel implementation                                             
         // Create and build program
-        let conversionData = KernelBinding.ConvertToCLKernel(kernelBody)
-        let (kernelSource:string, argInfo:(ParameterInfo * Expr) list, methodInfo:MethodInfo) = conversionData.Value  
+        let conversionData = KernelBinding.ConvertToCLKernel(kernel)
+        let (kernelSource:string, argInfo:ParameterInfo[]) = conversionData.Value  
         let computeProgram = new ComputeProgram(globalData.Devices.[deviceIndex.Value].Context, kernelSource)
-        computeProgram.Build(devices, "", null, System.IntPtr.Zero)
-        let computeKernel = computeProgram.CreateKernel(methodInfo.Name)
+        try
+            computeProgram.Build(devices, "", null, System.IntPtr.Zero)
+        with
+        | ex -> 
+            let log = computeProgram.GetBuildLog(device)
+            raise (new KernelAttributeException("Kernel build fail: " + log))
+        
+        let computeKernel = computeProgram.CreateKernel(kernel.Name)
 
         // Add kernel implementation to the list of implementations for the given kernel
         let compiledKernel = new FSCLCompiledKernelData(computeProgram, computeKernel, deviceIndex.Value)
@@ -119,7 +127,7 @@ type KernelRunner() =
         fsclData
 
     static member Run(expr: Expr, globalData: FSCLGlobalData, globalSize, localSize) =
-        let call = FSCL.Util.GetKernelCall(expr)
+        let call = FSCL.Util.GetKernelMethodInfoFromCall(expr)
         call
 
             

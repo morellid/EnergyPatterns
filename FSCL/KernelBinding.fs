@@ -33,14 +33,13 @@ type KernelBinding() =
                 "bool"
             elif (t.IsArray) then
                 let dimensions = KernelBinding.FindDimensionalityOfArray(t)
-                ConvertTypeInner(t.GetElementType()) + (String.replicate dimensions "*")
+                ConvertTypeInner(t.GetElementType()) + "*" //FIX: opencl doesn't allow pointer-to-pointer (String.replicate dimensions "*")
             else
                 raise (KernelBindingException("Invalid type used in kernel function " + t.ToString()))
         
         ConvertTypeInner(t)
 
-    static member ConvertToCLKernel (expr: Expr) =
-        
+    static member ConvertToCLKernel (kernel: System.Reflection.MethodInfo) =        
         let liftCallArgument (a:Expr) =
             " "        
         let rec liftAndOrOperator expr =
@@ -166,19 +165,12 @@ type KernelBinding() =
             | _ -> 
                 raise (KernelBindingException("Unrecognized expression in kernel function " + expr.ToString()))
                 
-        let rec analyzeAndPrettyPrintArg expr =
-            match expr with
-            | Patterns.Var (v) ->
-                // If type is array, prepend global keyword
-                if v.Type.IsArray then
-                    let dimensions = KernelBinding.FindDimensionalityOfArray(v.Type)
-                    "global " + KernelBinding.ConvertType(v.Type) + " " + v.Name + ", int " + KernelBinding.BuildArrayLengthAdditionalArgs v.Name dimensions
-                else
-                    KernelBinding.ConvertType(v.Type) + " " + v.Name
-            | Patterns.Call(e,i,a) ->
-                liftCallArgument expr
-            | _ ->
-                raise (KernelBindingException("Unrecognized parameter expression in kernel function " + expr.ToString()))
+        let rec analyzeAndPrettyPrintArg (p:System.Reflection.ParameterInfo) =
+            if p.ParameterType.IsArray then
+                let dimensions = KernelBinding.FindDimensionalityOfArray(p.ParameterType)
+                "global " + KernelBinding.ConvertType(p.ParameterType) + " " + p.Name + ", int " + KernelBinding.BuildArrayLengthAdditionalArgs p.Name dimensions
+            else
+                KernelBinding.ConvertType(p.ParameterType) + " " + p.Name
 
         let rec liftArgExtraction (expr, parameters: Reflection.ParameterInfo[]) =
             match expr with
@@ -193,36 +185,24 @@ type KernelBinding() =
             | _ ->
                 expr
 
-        let rec getKernelDefinition (expr) =
-            match expr with
-            | Patterns.Lambda(v, e) -> 
-                getKernelDefinition e
-            | Patterns.Let (v, e1, e2) ->
-                getKernelDefinition (e2)
-            | Patterns.Call (e, i, a) ->
-                match i with
-                | DerivedPatterns.MethodWithReflectedDefinition(b) ->
-                    expr
-                | _ ->
-                    raise (KernelBindingException("A kernel function must be marked with ReflectedDefinition attribute"))
-            | _-> 
-                raise (KernelBindingException("Cannot find a kernel function inside the expression"))
+        let rec getKernelMethodBody (info) =
+            match info with
+            | DerivedPatterns.MethodWithReflectedDefinition(b) ->
+                b
+            | _ ->
+                raise (KernelBindingException("A kernel function must be marked with ReflectedDefinition attribute"))
 
-        let kernel = getKernelDefinition (expr)
-        let prettyPrint =
-            match kernel with
-                | Patterns.Call (e, i, a) -> 
-                    match i with
-                    | DerivedPatterns.MethodWithReflectedDefinition(b) ->
-                        let paramArgs = List.zip ((i.GetParameters()) |> List.ofArray) a
-                        let prettyArgs = String.concat ", " (Seq.ofList (List.map (fun arg -> analyzeAndPrettyPrintArg(arg)) a))
-                        let cleanBody = liftArgExtraction(b, i.GetParameters())
-                        Some("kernel " + i.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + ";\n}\n", paramArgs, i)
-                    | _ ->
-                        None
-                | _ ->  
-                    None
-        prettyPrint
+        let kernelBody = getKernelMethodBody (kernel)
+        let kernelParams = kernel.GetParameters()
+        let prettyArgs = String.concat ", " (Seq.ofArray (Array.map (fun arg -> analyzeAndPrettyPrintArg(arg)) kernelParams))
+        let cleanBody = liftArgExtraction(kernelBody, kernelParams)
+        Some("kernel void " + kernel.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + ";\n}\n", kernelParams)
+
+        
+    static member ConvertToCLKernel (kernel: Expr) =
+        let methodInfo = FSCL.Util.GetKernelMethodInfoFromName(kernel)
+        KernelBinding.ConvertToCLKernel(methodInfo)
+  
                 
                 
                 
