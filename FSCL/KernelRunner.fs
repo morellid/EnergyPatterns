@@ -29,15 +29,31 @@ type FSCLGlobalData() =
 
 type KernelRunner() =
     static member private StoreNewKernel(globalData:FSCLGlobalData, kernel:MethodInfo, platformIndex, deviceIndex) =    
+        // Get method body as expr thanks to reflected definition and fail if no reflected method found
+        let kernelBody = 
+            match kernel with
+            | DerivedPatterns.MethodWithReflectedDefinition(b) ->
+                b
+            | _ ->
+                raise (new KernelAttributeException("The kernel " + kernel.Name + " must be labeled with ReflectedDefinition attribute to be recognized"))
+       
         // Discover platform and device
         let platform = ComputePlatform.Platforms.[platformIndex]
         let device = platform.Devices.[deviceIndex]   
         let devices = new System.Collections.Generic.List<ComputeDevice>();
         devices.Add(device)
         
-        // Add device to the list of used devices
+        // Check if kernel already stored
+        let mutable kernelIndex = List.tryFindIndex(fun (k:FSCLKernelData) -> k.MethodInfo = kernel) globalData.Kernels
+        if kernelIndex.IsNone then
+            // Store kernel
+            globalData.Kernels <- globalData.Kernels @ [ new FSCLKernelData(kernel) ]
+        let kernelData = globalData.Kernels.[kernelIndex.Value]
+
+        // Check if device already stored
         let mutable deviceIndex = List.tryFindIndex (fun (dev:FSCLDeviceData) -> dev.Device.Handle = device.Handle) globalData.Devices
         if deviceIndex.IsNone then
+            // Store device, context and queue (one per device)
             let contextProperties = new ComputeContextPropertyList(platform)
             let computeContext = new ComputeContext(devices, contextProperties, null, System.IntPtr.Zero) 
             let computeQueue = new ComputeCommandQueue(computeContext, device, ComputeCommandQueueFlags.None) 
@@ -46,15 +62,8 @@ type KernelRunner() =
             deviceIndex <- Some(globalData.Devices.Length)
             let deviceData = new FSCLDeviceData(device, computeContext, computeQueue)
             globalData.Devices <- globalData.Devices @ [ deviceData ]
-                                                        
-        // Get method body as expr thanks to reflected definition
-        let kernelBody = 
-            match kernel with
-            | DerivedPatterns.MethodWithReflectedDefinition(b) ->
-                b
-            | _ ->
-                raise (new KernelAttributeException("The kernel " + kernel.Name + " must be labeled with ReflectedDefinition attribute to be recognized"))
-                       
+           
+        // Bind the kernel to the device storing appropriate kernel implementation                                             
         // Create and build program
         let conversionData = KernelBinding.ConvertToCLKernel(kernelBody)
         let (kernelSource:string, argInfo:(ParameterInfo * Expr) list, methodInfo:MethodInfo) = conversionData.Value  
@@ -62,11 +71,9 @@ type KernelRunner() =
         computeProgram.Build(devices, "", null, System.IntPtr.Zero)
         let computeKernel = computeProgram.CreateKernel(methodInfo.Name)
 
-        // Add kernel to global data
+        // Add kernel implementation to the list of implementations for the given kernel
         let compiledKernel = new FSCLCompiledKernelData(computeProgram, computeKernel, deviceIndex.Value)
-        let kernelData = new FSCLKernelData(kernel)
-        kernelData.Instances <- [ compiledKernel ]
-        globalData.Kernels <- globalData.Kernels @ [ kernelData ]
+        kernelData.Instances <- kernelData.Instances @ [ compiledKernel ]
                 
         
     static member Init() =
@@ -113,7 +120,7 @@ type KernelRunner() =
 
     static member Run(expr: Expr, globalData: FSCLGlobalData, globalSize, localSize) =
         let call = FSCL.Util.GetKernelCall(expr)
-        ()
+        call
 
             
             
