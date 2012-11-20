@@ -100,7 +100,7 @@ type KernelBinding() =
             | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) -> binaryOp " >> " a // shift
             | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) -> binaryOp " << " a
             | Patterns.Call(e,i,l) -> 
-                let setArrayMore a m=
+                let setArrayMode a m=
                     if (not(argsAccessMode.ContainsKey(a))) then
                         argsAccessMode.Add(a, m) |> ignore
                     else
@@ -114,23 +114,31 @@ type KernelBinding() =
                 else
                     if i.DeclaringType.Name = "IntrinsicFunctions" then
                         if i.Name = "GetArray" then
-                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Read)
+                            setArrayMode (l.[0].ToString()) (ArrayAccessMode.Read)
                             l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "]"
                         elif i.Name = "GetArray2D" then
-                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Read)
-                            l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "]"
-                        elif i.Name = "GetArray2D" then
-                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Read)
-                            l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "][" + analyzeAndPrettyPrint(l.[3]) + "]"
+                            let arrayname = l.[0].ToString()
+                            setArrayMode arrayname (ArrayAccessMode.Read)
+                            let index = analyzeAndPrettyPrint(l.[1]) + "*" + KernelBinding.BuildArrayLengthAdditionalArg arrayname 0 + "+" + analyzeAndPrettyPrint(l.[2])
+                            arrayname + "[" + index + "]"
+                        elif i.Name = "GetArray3D" then
+                            let arrayname = l.[0].ToString()
+                            setArrayMode (l.[0].ToString()) (ArrayAccessMode.Read)
+                            let index = analyzeAndPrettyPrint(l.[1]) + "*" + KernelBinding.BuildArrayLengthAdditionalArg arrayname 0  + "*" + (KernelBinding.BuildArrayLengthAdditionalArg arrayname 1) + "+" + analyzeAndPrettyPrint(l.[2]) + "*" + (KernelBinding.BuildArrayLengthAdditionalArg arrayname 1) + "+" + analyzeAndPrettyPrint(l.[3])
+                            arrayname + "[" + index + "]"
                         elif i.Name = "SetArray" then
-                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Write)
+                            setArrayMode (l.[0].ToString()) (ArrayAccessMode.Write)
                             l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "] = " + analyzeAndPrettyPrint(l.[2])
                         elif i.Name = "SetArray2D" then
-                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Write)
-                            l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "]=" + analyzeAndPrettyPrint(l.[3])
+                            let arrayname = l.[0].ToString()
+                            setArrayMode arrayname (ArrayAccessMode.Write)
+                            let index = analyzeAndPrettyPrint(l.[1]) + "*" + KernelBinding.BuildArrayLengthAdditionalArg arrayname 0 + "+" + analyzeAndPrettyPrint(l.[2])
+                            arrayname + "[" + index + "]=" + analyzeAndPrettyPrint(l.[3])
                         elif i.Name = "SetArray3D" then
-                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Write)
-                            l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "][" + analyzeAndPrettyPrint(l.[3]) + "]=" + analyzeAndPrettyPrint(l.[4])
+                            let arrayname = l.[0].ToString()
+                            setArrayMode (l.[0].ToString()) (ArrayAccessMode.Write)
+                            let index = analyzeAndPrettyPrint(l.[1]) + "*" + KernelBinding.BuildArrayLengthAdditionalArg arrayname 0  + "*" + (KernelBinding.BuildArrayLengthAdditionalArg arrayname 1) + "+" + analyzeAndPrettyPrint(l.[2]) + "*" + (KernelBinding.BuildArrayLengthAdditionalArg arrayname 1) + "+" + analyzeAndPrettyPrint(l.[3])
+                            arrayname + "[" + index + "]=" + analyzeAndPrettyPrint(l.[4])
                         else
                             raiseExc()
                     elif i.DeclaringType.Name = "Array" && i.Name = "GetLength" then
