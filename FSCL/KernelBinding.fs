@@ -161,12 +161,12 @@ type KernelBinding() =
             | _ -> 
                 raise (KernelBindingException("Unrecognized expression in kernel function " + expr.ToString()))
                 
-        let rec analyzeAndPrettyPrintArg (p:System.Reflection.ParameterInfo) =
+        let rec analyzeAndPrettyPrintArg (p:System.Reflection.ParameterInfo) (fixedArg:string list, generatedArg:string list)=
             if p.ParameterType.IsArray then
                 let dimensions = FSCL.Util.GetArrayDimensions(p.ParameterType)
-                "global " + KernelBinding.ConvertType(p.ParameterType) + " " + p.Name + ", int " + KernelBinding.BuildArrayLengthAdditionalArgs p.Name dimensions
+                (fixedArg @ [("global " + KernelBinding.ConvertType(p.ParameterType) + " " + p.Name)], generatedArg @ [("int " + KernelBinding.BuildArrayLengthAdditionalArgs p.Name dimensions)])
             else
-                KernelBinding.ConvertType(p.ParameterType) + " " + p.Name
+                (fixedArg @ [(KernelBinding.ConvertType(p.ParameterType) + " " + p.Name)], generatedArg)
 
         let rec liftArgExtraction (expr, parameters: Reflection.ParameterInfo[]) =
             match expr with
@@ -190,7 +190,8 @@ type KernelBinding() =
 
         let kernelBody = getKernelMethodBody (kernel)
         let kernelParams = kernel.GetParameters()
-        let prettyArgs = String.concat ", " (Seq.ofArray (Array.map (fun arg -> analyzeAndPrettyPrintArg(arg)) kernelParams))
+        let (fixedArg, generatedArg) =  Array.fold (fun (fixedState:string list, generatedState:string list) arg -> analyzeAndPrettyPrintArg arg (fixedState,generatedState) ) ([],[]) kernelParams //(fun arg -> analyzeAndPrettyPrintArg(arg)) kernelParams
+        let prettyArgs = String.concat ", " (Seq.ofList (fixedArg @ generatedArg) )
         let cleanBody = liftArgExtraction(kernelBody, kernelParams)
         Some("kernel void " + kernel.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + ";\n}\n", kernelParams)
 
