@@ -3,8 +3,16 @@
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Core
 open System 
+open System.Collections.Generic
+
+[<System.Flags>]
+type ArrayAccessMode =
+   | Read = 0x0001 
+   | Write = 0x0002
 
 type KernelBinding() =
+    static let argsAccessMode = new Dictionary<string,ArrayAccessMode>()
+
     static member private BuildArrayLengthAdditionalArg (name:string) (n:obj) =
          String.Format("{0}_length_{1}", name, n.ToString())
 
@@ -92,6 +100,12 @@ type KernelBinding() =
             | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) -> binaryOp " >> " a // shift
             | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) -> binaryOp " << " a
             | Patterns.Call(e,i,l) -> 
+                let setArrayMore a m=
+                    if (not(argsAccessMode.ContainsKey(a))) then
+                        argsAccessMode.Add(a, m) |> ignore
+                    else
+                        let mode = argsAccessMode.[a]
+                        argsAccessMode.[a] <- mode ||| m
                 let raiseExc() = raise (KernelBindingException("Invalid operator used in kernel function " + expr.ToString()))
                 if i.DeclaringType.Name = "fscl" then
                     // the function is defined in FSCL
@@ -100,16 +114,22 @@ type KernelBinding() =
                 else
                     if i.DeclaringType.Name = "IntrinsicFunctions" then
                         if i.Name = "GetArray" then
+                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Read)
                             l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "]"
                         elif i.Name = "GetArray2D" then
+                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Read)
                             l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "]"
                         elif i.Name = "GetArray2D" then
+                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Read)
                             l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "][" + analyzeAndPrettyPrint(l.[3]) + "]"
                         elif i.Name = "SetArray" then
+                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Write)
                             l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "] = " + analyzeAndPrettyPrint(l.[2])
                         elif i.Name = "SetArray2D" then
+                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Write)
                             l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "]=" + analyzeAndPrettyPrint(l.[3])
                         elif i.Name = "SetArray3D" then
+                            setArrayMore (l.[0].ToString()) (ArrayAccessMode.Write)
                             l.[0].ToString() + "[" + analyzeAndPrettyPrint(l.[1]) + "][" + analyzeAndPrettyPrint(l.[2]) + "][" + analyzeAndPrettyPrint(l.[3]) + "]=" + analyzeAndPrettyPrint(l.[4])
                         else
                             raiseExc()
@@ -187,7 +207,7 @@ type KernelBinding() =
                 b
             | _ ->
                 raise (KernelBindingException("A kernel function must be marked with ReflectedDefinition attribute"))
-
+        argsAccessMode.Clear()
         let kernelBody = getKernelMethodBody (kernel)
         let kernelParams = kernel.GetParameters()
         let (fixedArg, generatedArg) =  Array.fold (fun (fixedState:string list, generatedState:string list) arg -> analyzeAndPrettyPrintArg arg (fixedState,generatedState) ) ([],[]) kernelParams //(fun arg -> analyzeAndPrettyPrintArg(arg)) kernelParams
