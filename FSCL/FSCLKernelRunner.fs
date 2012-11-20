@@ -123,9 +123,32 @@ type KernelRunner() =
                         StoreNewKernel(fsclData, kernel, platformIndex, deviceIndex)
 
     do Init()
-
+    
+    member private this.WriteBuffer<'T when 'T: struct>(c:ComputeContext, q:ComputeCommandQueue, arg:Expr) =
+        let dims = FSCL.Util.GetArrayDimensions(arg.Type)
+        match dims with
+        | 1 ->
+            let actualArg = arg.EvalUntyped() :?> 'T[]
+            let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, actualArg.LongLength)
+            q.WriteToBuffer<'T>(actualArg, buffer, false, null)
+            buffer :> ComputeMemory
+        | 2 ->
+            let actualArg = arg.EvalUntyped() :?> 'T[,]
+            let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, actualArg.LongLength)
+            let offset = Cloo.SysIntX2(0,0)
+            q.WriteToBuffer<'T>(actualArg, buffer, false, offset, offset, offset, null)
+            buffer :> ComputeMemory
+        | _ ->
+            let actualArg = arg.EvalUntyped() :?> 'T[,,]
+            let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, actualArg.LongLength)
+            let offset = Cloo.SysIntX3(0,0,0)
+            q.WriteToBuffer<'T>(actualArg, buffer, false, offset, offset, offset, null)
+            buffer :> ComputeMemory
+            
+        
     // Run a kernel through a quoted kernel call
     member this.Run(expr: Expr, size: (int * int) list) =
+             
         let (kernelInfo, args) = FSCL.Util.GetKernelFromCall (expr)
 
         // Found a kernel in global data matching the call
@@ -141,34 +164,45 @@ type KernelRunner() =
         // FIX: determine best read/write strategy
 
         // For each parameter, create buffer (if array), write it and set kernel arg
-        (*
+        
         List.iteri (fun index (par:ParameterInfo, arg:Expr) ->
             if par.ParameterType.IsArray then
                 // Create buffer
                 let t = par.ParameterType.GetElementType()
-                let actualArg = arg.EvalUntyped()
+                let mutable buffer = None
                 if (t = typeof<uint32>) then
-                    let buffer = new ComputeBuffer<uint32>(context, ComputeMemoryFlags.None, actualArg)
-                    
+                    buffer <- Some(this.WriteBuffer<uint32>(context, queue, arg))
                 elif (t = typeof<uint64>) then
-                    "unsigned long"        
+                    buffer <- Some(this.WriteBuffer<uint64>(context, queue, arg))
                 elif (t = typeof<int64>) then
-                    "long"               
+                    buffer <- Some(this.WriteBuffer<int64>(context, queue, arg))
                 elif (t = typeof<int>) then
-                    "int"            
+                    buffer <- Some(this.WriteBuffer<int>(context, queue, arg))
                 elif (t = typeof<double>) then
-                    "double"
+                    buffer <- Some(this.WriteBuffer<double>(context, queue, arg))
                 elif (t = typeof<float32>) then
-                    "float"
+                    buffer <- Some(this.WriteBuffer<float32>(context, queue, arg))
                 elif (t = typeof<bool>) then
-                    "bool"
-                    
+                    buffer <- Some(this.WriteBuffer<int>(context, queue, arg))
+                 
+                // Set kernel arg
+                kernelInstance.Kernel.SetMemoryArgument(index, buffer.Value)    
             else
-            (*
-                let genericMethod = kernelInstance.Kernel.GetType().GetMethod("SetValueArgument").GetGenericMethodDefinition()
-                let specificMethod = genericMethod.MakeGenericMethod([| par.ParameterType |])
-                specificMethod.Invoke(null, [| arg.EvalUntyped() |]) |> ignore) args *)
-                kernelInstance.Kernel.SetValueArgumentAsObject(index, arg.EvalUntyped())) *)
+                let t = par.ParameterType
+                if (t = typeof<uint32>) then
+                    kernelInstance.Kernel.SetValueArgument<uint32>(index, arg.EvalUntyped() :?> uint32)
+                elif (t = typeof<uint64>) then
+                    kernelInstance.Kernel.SetValueArgument<uint64>(index, arg.EvalUntyped() :?> uint64)
+                elif (t = typeof<int64>) then
+                    kernelInstance.Kernel.SetValueArgument<int64>(index, arg.EvalUntyped() :?> int64)
+                elif (t = typeof<int>) then
+                    kernelInstance.Kernel.SetValueArgument<int>(index, arg.EvalUntyped() :?> int)
+                elif (t = typeof<double>) then
+                    kernelInstance.Kernel.SetValueArgument<double>(index, arg.EvalUntyped() :?> double)
+                elif (t = typeof<float32>) then
+                    kernelInstance.Kernel.SetValueArgument<float32>(index, arg.EvalUntyped() :?> float32)
+                elif (t = typeof<bool>) then
+                    kernelInstance.Kernel.SetValueArgument<bool>(index, arg.EvalUntyped() :?> bool))
 
 
             
