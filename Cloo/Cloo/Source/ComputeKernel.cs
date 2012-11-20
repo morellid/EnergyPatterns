@@ -255,6 +255,23 @@ namespace Cloo
             }
         }
 
+        // FIX by Gabriele Cocco (can handle eny type of objects without the need to statically know the type)
+        public void SetValueArgumentAsObject(int index, object data)
+        {
+            GCHandle gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+            try
+            {
+                SetArgument(
+                    index,
+                    new IntPtr(Marshal.SizeOf(data.GetType())),
+                    gcHandle.AddrOfPinnedObject());
+            }
+            finally
+            {
+                gcHandle.Free();
+            }
+        }
+
         #endregion
 
         #region Protected methods

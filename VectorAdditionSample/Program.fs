@@ -9,27 +9,19 @@ open Microsoft.FSharp.Collections
 
 [<ReflectedDefinition>]
 let MatrixMult(a: float[,], b: float[,], c: float[,]) =
-    for i = 0 to a.GetLength(0) - 1 do
-        for j = 0 to b.GetLength(1) - 1 do
-            let mutable accum = 0.0
-            for k = 0 to a.GetLength(1) - 1 do
-                 accum <- accum + (a.[i ,k] * c.[k,j])
-            c.[i,j] <- accum
+    let x = fscl.get_global_id(0)
+    let y = fscl.get_global_id(1)
+    
+    let mutable accum = 0.0
+    for k = 0 to a.GetLength(1) - 1 do
+        accum <- accum + (a.[x,k] * c.[k,y])
+    c.[x,y] <- accum
 
 [<Kernel>]
 [<ReflectedDefinition>]
 let VectorAdd(a: float32[], b: float32[], c: float32[]) =
     let gid = fscl.get_global_id(0)
     c.[gid] <- (a.[gid] + b.[gid])
-
-[<ReflectedDefinition>]
-let foo(a: float32, b: float32) =
-    let ab = true
-    let bb = false
-    if(ab && bb && (4 > 2)) then
-        5.0f
-    else
-        4.0f + b
 
 [<Kernel>]
 [<ReflectedDefinition>]

@@ -1,10 +1,8 @@
 ﻿namespace FSCL
 
 open Microsoft.FSharp.Quotations
+open Microsoft.FSharp.Core
 open System 
-
-type KernelBindingException(msg: string) =
-    inherit Exception(msg)
 
 type KernelBinding() =
     static member private BuildArrayLengthAdditionalArg (name:string) (n:obj) =
@@ -13,17 +11,15 @@ type KernelBinding() =
     static member private BuildArrayLengthAdditionalArgs (name:string) (n:int) =
         String.concat ", int " (List.init n (KernelBinding.BuildArrayLengthAdditionalArg name))
         
-
-    static member private FindDimensionalityOfArray (t:Type) =
-        // Any better way to do this?
-        let dimensionsString = t.FullName.Split([| '['; ']' |]).[1]
-        let dimensions = ref 1
-        String.iter (fun c -> if (c = ',') then dimensions := !dimensions + 1) dimensionsString
-        !dimensions
-
     static member private ConvertType(t: Type) =
         let rec ConvertTypeInner(t: Type) =
-            if (t = typeof<int>) then
+            if (t = typeof<uint32>) then
+                "unsigned int"            
+            elif (t = typeof<uint64>) then
+                "unsigned long"        
+            elif (t = typeof<int64>) then
+                "long"               
+            elif (t = typeof<int>) then
                 "int"            
             elif (t = typeof<double>) then
                 "double"
@@ -32,7 +28,7 @@ type KernelBinding() =
             elif (t = typeof<bool>) then
                 "bool"
             elif (t.IsArray) then
-                let dimensions = KernelBinding.FindDimensionalityOfArray(t)
+                let dimensions = FSCL.Util.GetArrayDimensions(t)
                 ConvertTypeInner(t.GetElementType()) + "*" //FIX: opencl doesn't allow pointer-to-pointer (String.replicate dimensions "*")
             else
                 raise (KernelBindingException("Invalid type used in kernel function " + t.ToString()))
@@ -167,7 +163,7 @@ type KernelBinding() =
                 
         let rec analyzeAndPrettyPrintArg (p:System.Reflection.ParameterInfo) =
             if p.ParameterType.IsArray then
-                let dimensions = KernelBinding.FindDimensionalityOfArray(p.ParameterType)
+                let dimensions = FSCL.Util.GetArrayDimensions(p.ParameterType)
                 "global " + KernelBinding.ConvertType(p.ParameterType) + " " + p.Name + ", int " + KernelBinding.BuildArrayLengthAdditionalArgs p.Name dimensions
             else
                 KernelBinding.ConvertType(p.ParameterType) + " " + p.Name
@@ -200,7 +196,7 @@ type KernelBinding() =
 
         
     static member ConvertToCLKernel (kernel: Expr) =
-        let methodInfo = FSCL.Util.GetKernelMethodInfoFromName(kernel)
+        let (methodInfo, parameters) = FSCL.Util.GetKernelFromName(kernel)
         KernelBinding.ConvertToCLKernel(methodInfo)
   
                 

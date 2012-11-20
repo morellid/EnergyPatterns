@@ -1,38 +1,52 @@
 ﻿namespace FSCL
 
 open Microsoft.FSharp.Quotations
-
-type KernelInvocationException(msg: string) =
-    inherit System.Exception(msg)
+open System.Reflection
     
-module Util =
+module Util =    
+    let GetArrayDimensions (t:System.Type) =
+        // If not array return 0
+        if t.IsArray then
+            // Any better way to do this?
+            let dimensionsString = t.FullName.Split([| '['; ']' |]).[1]
+            let dimensions = ref 1
+            String.iter (fun c -> if (c = ',') then dimensions := !dimensions + 1) dimensionsString
+            !dimensions
+        else
+            0
 
-    let rec GetKernelMethodInfoFromName expr =
+    let GetArrayCount (o) =
+        if o.GetType().IsArray then
+            Some(o.GetType().GetProperty("Length").GetValue(o) :?> int)
+        else
+            None
+
+    let rec GetKernelFromName expr =
         let call =            
             match expr with
             | Patterns.Lambda(v, e) -> 
-                GetKernelMethodInfoFromName e
+                GetKernelFromName e
             | Patterns.Let (v, e1, e2) ->
-                GetKernelMethodInfoFromName (e2)
+                GetKernelFromName (e2)
             | Patterns.Call (e, i, a) ->
                 match i with
                 | DerivedPatterns.MethodWithReflectedDefinition(b) ->
-                    i
+                    (i, Array.map (fun (p:ParameterInfo) -> (p, GetArrayDimensions(p.ParameterType))) (i.GetParameters()))
                 | _ ->
-                    raise (KernelInvocationException("A kernel invocation must provide a function marked with ReflectedDefinition attribute"))
+                    raise (KernelDefinitionException("A kernel definition must provide a function marked with ReflectedDefinition attribute"))
             | _-> 
-                raise (KernelInvocationException("Cannot find a kernel function invocation inside the expression"))
+                raise (KernelDefinitionException("Cannot find a kernel function definition inside the expression"))
 
         call
 
-    let GetKernelMethodInfoFromCall (expr:Expr) =
+    let GetKernelFromCall (expr:Expr) =
         match expr with
         | Patterns.Call (e, i, a) ->
             match i with
             | DerivedPatterns.MethodWithReflectedDefinition(b) ->
-                i
+                (i, List.zip (List.ofArray (i.GetParameters())) a)
             | _ ->
-                raise (KernelInvocationException("A kernel invocation must provide a function marked with ReflectedDefinition attribute"))
+                raise (KernelCallException("To be called, a kernel must provide a function marked with ReflectedDefinition attribute"))
         | _-> 
-            raise (KernelInvocationException("Cannot find a kernel function invocation inside the expression"))
+            raise (KernelCallException("Cannot find a kernel function invocation inside the expression"))
 
