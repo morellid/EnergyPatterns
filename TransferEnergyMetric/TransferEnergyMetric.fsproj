@@ -5,12 +5,12 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>a329e02a-c967-4f11-99bf-cf6c16a009af</ProjectGuid>
+    <ProjectGuid>a84732b7-8090-4259-b0b6-106a330df59d</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>MetricUtil</RootNamespace>
-    <AssemblyName>MetricUtil</AssemblyName>
+    <RootNamespace>TransferEnergyMetric</RootNamespace>
+    <AssemblyName>TransferEnergyMetric</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>MetricUtil</Name>
+    <Name>TransferEnergyMetric</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -20,7 +20,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\MetricUtil.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\TransferEnergyMetric.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,8 +29,19 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\MetricUtil.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\TransferEnergyMetric.XML</DocumentationFile>
   </PropertyGroup>
+  <PropertyGroup>
+    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
+  <ItemGroup>
+    <None Include="Script.fsx" />
+    <Compile Include="TransferEnergyException.fs" />
+    <Compile Include="TransferEnergyData.fs" />
+    <Compile Include="TransferEnergyUtil.fs" />
+    <Compile Include="TransferEnergyMetric.fs" />
+  </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
@@ -39,17 +50,22 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
+      <Name>Cloo.VS2010</Name>
+      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\MetricUtil\MetricUtil.fsproj">
+      <Name>MetricUtil</Name>
+      <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\QuotationEvaluation\QuotationEvaluation.fsproj">
+      <Name>QuotationEvaluation</Name>
+      <Project>{4e34127e-86c3-48b8-9e7e-7d7c72dbc856}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Exception.fs" />
-    <Compile Include="Tools.fs" />
-    <Compile Include="Metric.fs" />
-    <None Include="Script.fsx" />
-  </ItemGroup>
-  <PropertyGroup>
-    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
-  </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

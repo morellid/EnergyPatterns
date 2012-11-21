@@ -163,8 +163,7 @@ type KernelRunner() =
         ()
         // FIX: determine best read/write strategy
 
-        // For each parameter, create buffer (if array), write it and set kernel arg
-        
+        // For each parameter, create buffer (if array), write it and set kernel arg        
         List.iteri (fun index (par:ParameterInfo, arg:Expr) ->
             if par.ParameterType.IsArray then
                 // Create buffer
@@ -203,6 +202,7 @@ type KernelRunner() =
                     kernelInstance.Kernel.SetValueArgument<float32>(index, arg.EvalUntyped() :?> float32)
                 elif (t = typeof<bool>) then
                     kernelInstance.Kernel.SetValueArgument<bool>(index, arg.EvalUntyped() :?> bool))
+
 
 
             

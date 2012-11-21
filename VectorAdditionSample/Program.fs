@@ -40,10 +40,10 @@ let main argv =
     metric.PerStepDuration <- 20000
     metric.ThreadCount <- 2048L
 
-    let data = KernelRunner.Init()
+    // let data = new KernelRunner()
 
     // Test prettyPrinting
-    let (str, a) = (FSCL.KernelBinding.ConvertToCLKernel(<@ VectorAdd @>)).Value
+    let (str, a) = (FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)).Value
     printf "%s" str
     (*
     let b = Array.create 10 10.0

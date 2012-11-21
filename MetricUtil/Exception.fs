@@ -1,4 +1,4 @@
-﻿namespace MetricUtil
+﻿namespace MetricBase.Exceptions
 
 open System 
 

@@ -41,11 +41,10 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="QuotationEvaluation.fs" />
-    <Compile Include="InstructionEnergyMetricUtil.fs" />
+    <Compile Include="ExpressionAnalyzer.fs" />
     <Compile Include="InstructionCountEstimator.fs" />
     <Compile Include="KernelBuilder.fs" />
-    <Compile Include="InstructionEnergyMetric.fs" />
+    <Compile Include="IntructionEnergyMetric.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>
   <ItemGroup>

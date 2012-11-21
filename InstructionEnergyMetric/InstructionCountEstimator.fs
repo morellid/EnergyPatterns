@@ -1,17 +1,19 @@
-﻿namespace InstructionEnergyMetric
+﻿namespace InstructionEnergy.Tools
 
 open Microsoft.FSharp.Quotations
 open System.Reflection
 open Microsoft.FSharp.Reflection
-open MetricUtil
+open MetricBase
+open MetricBase.Tools
+open MetricBase.Exceptions
 open Microsoft.FSharp.Linq.QuotationEvaluation
 
-module InstructionCountEstimator =   
+module internal InstructionCountEstimator =   
     // Checks if vars in an expression referes exclusively the parameters contained in a list
-    let plusMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ (+) @>, typeof<double>)
-    let multMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ (*) @>, typeof<double>)
-    let subMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ (-) @>, typeof<double>)
-    let greatMethodInfo = InstructionEnergyMetricUtil.GetOperatorMethodInfo (<@ (>) @>, typeof<double>)
+    let plusMethodInfo = ExpressionAnalyzer.GetOperatorMethodInfo (<@ (+) @>, typeof<double>)
+    let multMethodInfo = ExpressionAnalyzer.GetOperatorMethodInfo (<@ (*) @>, typeof<double>)
+    let subMethodInfo = ExpressionAnalyzer.GetOperatorMethodInfo (<@ (-) @>, typeof<double>)
+    let greatMethodInfo = ExpressionAnalyzer.GetOperatorMethodInfo (<@ (>) @>, typeof<double>)
 
     let rec refersOnly (expr:Expr, pars:ParameterInfo[]) =
         match expr with

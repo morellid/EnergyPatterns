@@ -5,12 +5,12 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>a329e02a-c967-4f11-99bf-cf6c16a009af</ProjectGuid>
+    <ProjectGuid>0860f2a4-632c-40bf-88f8-35ad2c3cc737</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>MetricUtil</RootNamespace>
-    <AssemblyName>MetricUtil</AssemblyName>
+    <RootNamespace>FSCL.Transformation</RootNamespace>
+    <AssemblyName>FSCL.Transformation</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>MetricUtil</Name>
+    <Name>FSCL.Transformation</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -20,7 +20,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\MetricUtil.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\FSCL.Transformation.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,7 +29,7 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\MetricUtil.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\FSCL.Transformation.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -41,9 +41,7 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Exception.fs" />
-    <Compile Include="Tools.fs" />
-    <Compile Include="Metric.fs" />
+    <Compile Include="Library1.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>
   <PropertyGroup>

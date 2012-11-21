@@ -1,6 +1,6 @@
-﻿namespace InstructionEnergyMetric
+﻿namespace InstructionEnergy.Tools
 
-type KernelBuilder() =
+type internal KernelBuilder() =
     static member BuildKernel(numOps) =
         let mutable kernel = "kernel void run(global float* input, global float* output) {\n
                                  float e1 = input[0];\n

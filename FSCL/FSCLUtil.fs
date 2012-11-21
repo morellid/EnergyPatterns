@@ -20,6 +20,17 @@ module Util =
             Some(o.GetType().GetProperty("Length").GetValue(o) :?> int)
         else
             None
+            
+    let GetKernelAdditionalParameters(t:System.Type) =
+        // If not array return 0
+        if t.IsArray then
+            // Any better way to do this?
+            let dimensionsString = t.FullName.Split([| '['; ']' |]).[1]
+            let dimensions = ref 1
+            String.iter (fun c -> if (c = ',') then dimensions := !dimensions + 1) dimensionsString
+            !dimensions
+        else
+            0
 
     let rec GetKernelFromName expr =
         let call =            
