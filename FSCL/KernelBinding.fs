@@ -221,7 +221,14 @@ type KernelBinding() =
         let (fixedArg, generatedArg) =  Array.fold (fun (fixedState:string list, generatedState:string list) arg -> analyzeAndPrettyPrintArg arg (fixedState,generatedState) ) ([],[]) kernelParams //(fun arg -> analyzeAndPrettyPrintArg(arg)) kernelParams
         let prettyArgs = String.concat ", " (Seq.ofList (fixedArg @ generatedArg) )
         let cleanBody = liftArgExtraction(kernelBody, kernelParams)
-        Some("kernel void " + kernel.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + ";\n}\n", kernelParams)
+        Some("kernel void " + kernel.Name + "(" + prettyArgs + ") {\n" + analyzeAndPrettyPrint(cleanBody) + ";\n}\n", 
+            Seq.toList(seq {
+                        for par in kernelParams do
+                            if (argsAccessMode.ContainsKey(par.Name)) then
+                                yield (par, Some(argsAccessMode.[par.Name]))
+                            else
+                                yield (par, None)
+                        }))
 
         
     static member ConvertToCLKernel (kernel: Expr) =

@@ -40,12 +40,22 @@
     <Compile Include="TransferEnergyException.fs" />
     <Compile Include="TransferEnergyData.fs" />
     <Compile Include="TransferEnergyUtil.fs" />
+    <Compile Include="ParameterAccessAnalyzer.fs" />
     <Compile Include="TransferEnergyMetric.fs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="Energon.Extech">
+      <HintPath>..\Ammeters\RemoteAmmeter\Energon.Extech.dll</HintPath>
+    </Reference>
+    <Reference Include="Energon.Measuring">
+      <HintPath>..\Ammeters\RemoteAmmeter\Energon.Measuring.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
+    </Reference>
+    <Reference Include="RemoteAmmeter">
+      <HintPath>..\Ammeters\RemoteAmmeter\RemoteAmmeter.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

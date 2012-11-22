@@ -2,6 +2,12 @@
 
 open Cloo
 
+type BufferAccess =
+| READ_ONLY
+| WRITE_ONLY
+| READ_WRITE
+| NO_ACCESS
+
 type TransferEndpoint() = 
     let isHostPtr = true
     let flags = ComputeMemoryFlags.None

@@ -10,13 +10,16 @@ open Microsoft.FSharp.Linq.QuotationEvaluation
 
 type EnergyProfilingResult = (int * double) list
 type EnergyInstantiationResult = double
+type EnergyEvaluationResult = Expr
 
-type InstructionEnergyMetric() =
+type InstructionEnergyMetric(ammeterIp) =
     let mutable min_instr = 1
     let mutable max_instr = 1
     let mutable step = 1
     let mutable per_step_duration = 0
     let mutable thread_count = 128L
+
+    member val AmmeterIp = ammeterIp with get, set
 
     member this.MinInstr 
         with get() = min_instr
@@ -38,13 +41,13 @@ type InstructionEnergyMetric() =
         with get() = thread_count
         and set count = thread_count <- count
 
-    interface AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyInstantiationResult> with
+    interface AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyEvaluationResult, EnergyInstantiationResult> with
         member this.Profile(device) =
             // Setup CL
-            let computePlatform = device.Device.Platform;
+            let computePlatform = device.Platform;
             let contextProperties = new ComputeContextPropertyList(computePlatform)
             let devices = new System.Collections.Generic.List<ComputeDevice>();
-            devices.Add(device.Device)
+            devices.Add(device)
             let computeContext = new ComputeContext(devices, contextProperties, null, System.IntPtr.Zero);
             
             // Calculate list of instr count
@@ -60,7 +63,7 @@ type InstructionEnergyMetric() =
                 let computeProgram = new ComputeProgram(computeContext, [| Tools.KernelBuilder.BuildKernel(currInstr) |])
                 computeProgram.Build(devices, "", null, System.IntPtr.Zero)
                 let computeKernel = computeProgram.CreateKernel("run")
-                let computeQueue = new ComputeCommandQueue(computeContext, device.Device, ComputeCommandQueueFlags.OutOfOrderExecution)
+                let computeQueue = new ComputeCommandQueue(computeContext, device, ComputeCommandQueueFlags.OutOfOrderExecution)
                 let inputBuffer = new ComputeBuffer<float>(computeContext, ComputeMemoryFlags.ReadOnly, 4L)
                 let outputBuffer = new ComputeBuffer<float>(computeContext, ComputeMemoryFlags.WriteOnly, 4L)
                 computeKernel.SetMemoryArgument(0, inputBuffer)
@@ -79,8 +82,8 @@ type InstructionEnergyMetric() =
                 for i in 0 .. iterations - 1 do
                     computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
                     computeQueue.Finish()
+            []
             
-            new ProfilingResult<EnergyProfilingResult>([])
             
         member this.Evaluate(profiling, expr:Expr) =
             let kernel = Tools.KernelTools.ExtractKernelDefinition(expr)
@@ -90,7 +93,7 @@ type InstructionEnergyMetric() =
             else
                 raise (MetricBase.Exceptions.MetricEvaluationError("Cannot evaluate instruction count\n"))
                 
-        member this.Instantiate(evaluation, invocation) =
+        member this.Instantiate(profiling, evaluation, invocation) =
             // Evaluation is something like "<compute instruction>"
             // To compute instructions we bind the variables that are free in <compute instruction>
             let (methodInfo, args) = MetricBase.Tools.KernelTools.ExtractKernelInvocation(invocation)
@@ -107,5 +110,5 @@ type InstructionEnergyMetric() =
                     finalExpr <- Expr.Let(freeVar.Value, args.[i], finalExpr)
                                            
             let result = finalExpr.EvalUntyped()
-            new InstantiationResult<double>(result :?> double)
+            result :?> double
             

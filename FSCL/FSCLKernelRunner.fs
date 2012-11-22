@@ -16,8 +16,9 @@ type FSCLCompiledKernelData(program, kernel, device) =
     member val Kernel = kernel with get
     member val DeviceIndex = device with get
 
-type FSCLKernelData(kernel) =
+type FSCLKernelData(kernel, parameters) =
     member val MethodInfo = kernel with get
+    member val Parameters = parameters with get
     // List of devices and kernel instances potentially executing the kernel
     member val Instances:FSCLCompiledKernelData list = [] with get, set       
 
@@ -38,6 +39,9 @@ type KernelRunner() =
             | _ ->
                 raise (new KernelDefinitionException("The kernel " + kernel.Name + " must be labeled with ReflectedDefinition attribute to be recognized"))
        
+        // Convert kernel         
+        let conversionData = KernelBinding.ConvertToCLKernel(kernel)
+
         // Discover platform and device
         let platform = ComputePlatform.Platforms.[platformIndex]
         let device = platform.Devices.[deviceIndex]   
@@ -48,7 +52,7 @@ type KernelRunner() =
         let mutable kernelIndex = List.tryFindIndex(fun (k:FSCLKernelData) -> k.MethodInfo = kernel) globalData.Kernels
         if kernelIndex.IsNone then
             // Store kernel
-            globalData.Kernels <- globalData.Kernels @ [ new FSCLKernelData(kernel) ]
+            globalData.Kernels <- globalData.Kernels @ [ new FSCLKernelData(kernel, snd(conversionData.Value)) ]
             kernelIndex <- Some(globalData.Kernels.Length - 1)
         let kernelData = globalData.Kernels.[kernelIndex.Value]
 
@@ -67,8 +71,7 @@ type KernelRunner() =
            
         // Bind the kernel to the device storing appropriate kernel implementation                                             
         // Create and build program
-        let conversionData = KernelBinding.ConvertToCLKernel(kernel)
-        let (kernelSource:string, argInfo:ParameterInfo[]) = conversionData.Value  
+        let (kernelSource:string, argInfo:(ParameterInfo * ArrayAccessMode option) list) = conversionData.Value  
         let computeProgram = new ComputeProgram(globalData.Devices.[deviceIndex.Value].Context, kernelSource)
         try
             computeProgram.Build(devices, "", null, System.IntPtr.Zero)
@@ -124,30 +127,49 @@ type KernelRunner() =
 
     do Init()
     
-    member private this.WriteBuffer<'T when 'T: struct>(c:ComputeContext, q:ComputeCommandQueue, arg:Expr) =
-        let dims = FSCL.Util.GetArrayDimensions(arg.Type)
+    member private this.WriteBuffer<'T when 'T: struct>(c:ComputeContext, q:ComputeCommandQueue, arg:obj, dims, shouldInit) =
+        //let dims = FSCL.Util.GetArrayDimensions(arg.Type)
         match dims with
         | 1 ->
-            let actualArg = arg.EvalUntyped() :?> 'T[]
+            let actualArg = arg :?> 'T[]
             let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, actualArg.LongLength)
-            q.WriteToBuffer<'T>(actualArg, buffer, false, null)
+            if shouldInit then
+                q.WriteToBuffer<'T>(actualArg, buffer, false, null)
             buffer :> ComputeMemory
         | 2 ->
-            let actualArg = arg.EvalUntyped() :?> 'T[,]
+            let actualArg = arg :?> 'T[,]
             let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, actualArg.LongLength)
-            let offset = Cloo.SysIntX2(0,0)
-            q.WriteToBuffer<'T>(actualArg, buffer, false, offset, offset, offset, null)
+            if shouldInit then
+                let offset = Cloo.SysIntX2(0,0)
+                q.WriteToBuffer<'T>(actualArg, buffer, false, offset, offset, offset, null)
             buffer :> ComputeMemory
         | _ ->
-            let actualArg = arg.EvalUntyped() :?> 'T[,,]
+            let actualArg = arg :?> 'T[,,]
             let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, actualArg.LongLength)
-            let offset = Cloo.SysIntX3(0,0,0)
-            q.WriteToBuffer<'T>(actualArg, buffer, false, offset, offset, offset, null)
+            if shouldInit then
+                let offset = Cloo.SysIntX3(0,0,0)
+                q.WriteToBuffer<'T>(actualArg, buffer, false, offset, offset, offset, null)
             buffer :> ComputeMemory
             
+    member private this.ReadBuffer<'T when 'T: struct>(c:ComputeContext, q:ComputeCommandQueue, arg:obj, dims, buffer: ComputeBuffer<'T>) =
+        //let dims = FSCL.Util.GetArrayDimensions(arg.Type)
+        match dims with
+        | 1 ->
+            let actualArg = arg :?> 'T[]
+            q.ReadFromBuffer<'T>(buffer, ref actualArg, true, null)            
+        | 2 ->
+            let actualArg = arg :?> 'T[,]
+            let offset = Cloo.SysIntX2(0,0)
+            let region = Cloo.SysIntX2(actualArg.GetLength(0),actualArg.GetLength(1))
+            q.ReadFromBuffer<'T>(buffer, ref actualArg, true, offset, offset, region, null)
+        | _ ->
+            let actualArg = arg :?> 'T[,,]
+            let offset = Cloo.SysIntX3(0,0,0)
+            let region = Cloo.SysIntX3(actualArg.GetLength(0), actualArg.GetLength(1), actualArg.GetLength(2))
+            q.ReadFromBuffer<'T>(buffer, ref actualArg, true, offset, offset, region, null)
         
     // Run a kernel through a quoted kernel call
-    member this.Run(expr: Expr, size: (int * int) list) =
+    member this.Run(expr: Expr, size: (int64 * int64) array) =
              
         let (kernelInfo, args) = FSCL.Util.GetKernelFromCall (expr)
 
@@ -160,32 +182,52 @@ type KernelRunner() =
         let kernelInstance = matchingKernel.Value.Instances.[0]
         let queue = fsclData.Devices.[kernelInstance.DeviceIndex].Queue
         let context = fsclData.Devices.[kernelInstance.DeviceIndex].Context
-        ()
         // FIX: determine best read/write strategy
 
-        // For each parameter, create buffer (if array), write it and set kernel arg        
-        List.iteri (fun index (par:ParameterInfo, arg:Expr) ->
+        // For each parameter, create buffer (if array), write it and set kernel arg   
+        let additionalArgCount = ref 0     
+        let paramObjectBufferMap = new System.Collections.Generic.Dictionary<string, (System.Object * ComputeMemory)>()
+
+        Array.iteri (fun index (par:ParameterInfo, dim:int, arg:Expr) ->
             if par.ParameterType.IsArray then
-                // Create buffer
+                let o = arg.EvalUntyped()
+
+                // Check if read or read_write mode
+                let mutable mustInitBuffer = false
+                let matchingParameter = List.tryFind (fun (p:ParameterInfo, access) -> par.Name = p.Name) (matchingKernel.Value.Parameters)
+                if (matchingParameter.IsSome) then
+                    let access = (snd(matchingParameter.Value))
+                    mustInitBuffer <- access.IsSome && ((access.Value &&& ArrayAccessMode.Read) = ArrayAccessMode.Read)
+
+                // Create buffer and eventually init it
                 let t = par.ParameterType.GetElementType()
                 let mutable buffer = None
                 if (t = typeof<uint32>) then
-                    buffer <- Some(this.WriteBuffer<uint32>(context, queue, arg))
+                    buffer <- Some(this.WriteBuffer<uint32>(context, queue, o, dim, mustInitBuffer))
                 elif (t = typeof<uint64>) then
-                    buffer <- Some(this.WriteBuffer<uint64>(context, queue, arg))
+                    buffer <- Some(this.WriteBuffer<uint64>(context, queue, o, dim ,mustInitBuffer))
                 elif (t = typeof<int64>) then
-                    buffer <- Some(this.WriteBuffer<int64>(context, queue, arg))
+                    buffer <- Some(this.WriteBuffer<int64>(context, queue, o, dim, mustInitBuffer))
                 elif (t = typeof<int>) then
-                    buffer <- Some(this.WriteBuffer<int>(context, queue, arg))
+                    buffer <- Some(this.WriteBuffer<int>(context, queue, o, dim, mustInitBuffer))
                 elif (t = typeof<double>) then
-                    buffer <- Some(this.WriteBuffer<double>(context, queue, arg))
+                    buffer <- Some(this.WriteBuffer<double>(context, queue, o, dim, mustInitBuffer))
                 elif (t = typeof<float32>) then
-                    buffer <- Some(this.WriteBuffer<float32>(context, queue, arg))
+                    buffer <- Some(this.WriteBuffer<float32>(context, queue, o, dim, mustInitBuffer))
                 elif (t = typeof<bool>) then
-                    buffer <- Some(this.WriteBuffer<int>(context, queue, arg))
+                    buffer <- Some(this.WriteBuffer<int>(context, queue, o, dim, mustInitBuffer))
                  
+                // Stor association between parameter, array and buffer object
+                paramObjectBufferMap.Add(par.Name, (o, buffer.Value))
+
                 // Set kernel arg
-                kernelInstance.Kernel.SetMemoryArgument(index, buffer.Value)    
+                kernelInstance.Kernel.SetMemoryArgument(index, buffer.Value)  
+
+                // Set additional args for array params (dimensions) 
+                for dimension = 0 to dim - 1 do
+                    let sizeOfDim = o.GetType().GetMethod("GetLength").Invoke(o, [| dimension |]) :?> int
+                    kernelInstance.Kernel.SetValueArgument<int>(args.Length + !additionalArgCount + dimension, sizeOfDim)
+                additionalArgCount := !additionalArgCount + dim
             else
                 let t = par.ParameterType
                 if (t = typeof<uint32>) then
@@ -201,12 +243,43 @@ type KernelRunner() =
                 elif (t = typeof<float32>) then
                     kernelInstance.Kernel.SetValueArgument<float32>(index, arg.EvalUntyped() :?> float32)
                 elif (t = typeof<bool>) then
-                    kernelInstance.Kernel.SetValueArgument<bool>(index, arg.EvalUntyped() :?> bool))
+                    kernelInstance.Kernel.SetValueArgument<bool>(index, arg.EvalUntyped() :?> bool)) (args)
 
+        // Run kernel
+        let globalSize, localSize = Array.unzip (size)
+        let offset = Array.zeroCreate<int64>(globalSize.Length)
+        queue.Execute(kernelInstance.Kernel, offset, globalSize, localSize, null)
 
+        // Read result if needed
+        Array.iteri (fun index (par:ParameterInfo, dim:int, arg:Expr) ->
+            if par.ParameterType.IsArray then
+                // Get association between parameter, array and buffer object
+                let (o, buffer) = paramObjectBufferMap.[par.Name]
 
-            
+                // Check if write or read_write mode
+                let mutable mustReadBuffer = false
+                let matchingParameter = List.tryFind (fun (p:ParameterInfo, access) -> par.Name = p.Name) (matchingKernel.Value.Parameters)
+                if (matchingParameter.IsSome) then
+                    let access = (snd(matchingParameter.Value))
+                    mustReadBuffer <- access.IsSome && ((access.Value &&& ArrayAccessMode.Write) = ArrayAccessMode.Write)
 
+                // Create buffer and eventually init it
+                let t = par.ParameterType.GetElementType()
+                if (t = typeof<uint32>) then
+                    this.ReadBuffer<uint32>(context, queue, o, dim, buffer :?> ComputeBuffer<uint32>) 
+                elif (t = typeof<uint64>) then
+                    this.ReadBuffer<uint64>(context, queue, o, dim, buffer :?> ComputeBuffer<uint64>) 
+                elif (t = typeof<int64>) then
+                    this.ReadBuffer<int64>(context, queue, o, dim, buffer :?> ComputeBuffer<int64>) 
+                elif (t = typeof<int>) then
+                    this.ReadBuffer<int>(context, queue, o, dim, buffer :?> ComputeBuffer<int>) 
+                elif (t = typeof<double>) then
+                    this.ReadBuffer<double>(context, queue, o, dim, buffer :?> ComputeBuffer<double>) 
+                elif (t = typeof<float32>) then
+                    this.ReadBuffer<float32>(context, queue, o, dim, buffer :?> ComputeBuffer<float32>) 
+                elif (t = typeof<bool>) then
+                    this.ReadBuffer<bool>(context, queue, o, dim, buffer :?> ComputeBuffer<bool>)) args 
+                 
 
             
             

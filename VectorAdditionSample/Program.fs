@@ -2,8 +2,8 @@
 // See the 'F# Tutorial' project for more help.
 
 open FSCL
-open InstructionEnergyMetric
-open MetricUtil
+open InstructionEnergy
+open MetricBase
 open Cloo
 open Microsoft.FSharp.Collections
 
@@ -33,18 +33,23 @@ let SimpleKernel(a: float32, b: float32, c: float32, mult: float32) =
 
 [<EntryPoint>]
 let main argv =
+(*
     let metric = new InstructionEnergyMetric()
     metric.MinInstr <- 1
     metric.MaxInstr <- 2048
     metric.Step <- 100
     metric.PerStepDuration <- 20000
     metric.ThreadCount <- 2048L
-
-    // let data = new KernelRunner()
-
+    *)
+    let a = Array.create 10 10.0f
+    let b = Array.create 10 10.0f
+    let c = Array.zeroCreate<float32> 10
+    let runner = new KernelRunner()
+    runner.Run(<@ VectorAdd(a, b, c) @>, [| (10L, 10L) |])
+    5
     // Test prettyPrinting
-    let (str, a) = (FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)).Value
-    printf "%s" str
+    //let (str, a) = (FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)).Value
+    //printf "%s" str
     (*
     let b = Array.create 10 10.0
     let c = Array.create 10 10.0
@@ -56,6 +61,7 @@ let main argv =
     printf "Number of instruction in the kernel (args = a, b, c): %f\n" instructions.Result
     *)
     // Matrix mult
+    (*
     let matA = array2D [ [ 1.0; 2.0 ]; 
                          [ 1.0; 2.0 ] ]
     let matB = array2D [ [ 1.0; 2.0 ]; 
@@ -77,4 +83,4 @@ let main argv =
     let g2 = t.odd
     printfn "%A" argv
     *)
-    0 // return an integer exit code
+    0 // return an integer exit code *)

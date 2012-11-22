@@ -54,8 +54,8 @@ module Util =
         match expr with
         | Patterns.Call (e, i, a) ->
             match i with
-            | DerivedPatterns.MethodWithReflectedDefinition(b) ->
-                (i, List.zip (List.ofArray (i.GetParameters())) a)
+            | DerivedPatterns.MethodWithReflectedDefinition(b) ->            
+                (i, Array.mapi (fun i (p:ParameterInfo) -> (p, GetArrayDimensions(p.ParameterType), a.[i])) (i.GetParameters()))
             | _ ->
                 raise (KernelCallException("To be called, a kernel must provide a function marked with ReflectedDefinition attribute"))
         | _-> 
