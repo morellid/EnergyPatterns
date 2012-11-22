@@ -1,7 +1,6 @@
 ﻿namespace FSCL
 
 module Patterns =
-    [<Kernel>]
     [<ReflectedDefinition>]
     let MatrixMult(a: float[,], b: float[,], c: float[,]) =
         for i = 0 to a.GetLength(0) - 1 do

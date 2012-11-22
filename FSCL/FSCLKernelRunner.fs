@@ -88,7 +88,7 @@ type KernelRunner() =
             
     let Init() =
         // Find out kernels in the calling assembly
-        let assembly = Assembly.GetCallingAssembly()
+        let assembly = Assembly.GetEntryAssembly()
         let types = (assembly.GetTypes()) 
         let kernels = seq {
                         for t in types do

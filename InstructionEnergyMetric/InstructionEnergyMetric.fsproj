@@ -53,8 +53,8 @@
       <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\MetricUtil\MetricUtil.fsproj">
-      <Name>MetricUtil</Name>
+    <ProjectReference Include="..\MetricUtil\MetricBase.fsproj">
+      <Name>MetricBase</Name>
       <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
       <Private>True</Private>
     </ProjectReference>

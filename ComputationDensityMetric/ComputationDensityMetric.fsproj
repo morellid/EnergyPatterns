@@ -47,8 +47,10 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-    <ProjectReference Include="..\MetricUtil\MetricUtil.fsproj">
-      <Name>MetricUtil</Name>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MetricUtil\MetricBase.fsproj">
+      <Name>MetricBase</Name>
       <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
       <Private>True</Private>
     </ProjectReference>
