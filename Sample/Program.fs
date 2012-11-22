@@ -6,17 +6,18 @@ open InstructionEnergy
 open MetricBase
 open Cloo
 open Microsoft.FSharp.Collections
-(*
+
+[<Kernel>]
 [<ReflectedDefinition>]
-let MatrixMult(a: float[,], b: float[,], c: float[,]) =
+let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
     let x = fscl.get_global_id(0)
     let y = fscl.get_global_id(1)
     
-    let mutable accum = 0.0
+    let mutable accum = 0.0f
     for k = 0 to a.GetLength(1) - 1 do
-        accum <- accum + (a.[x,k] * c.[k,y])
+        accum <- accum + (a.[x,k] * b.[k,y])
     c.[x,y] <- accum
-    *)
+    
 [<Kernel>]
 [<ReflectedDefinition>]
 let VectorAdd(a: float32[], b: float32[], c: float32[]) =
@@ -25,6 +26,7 @@ let VectorAdd(a: float32[], b: float32[], c: float32[]) =
 
 [<EntryPoint>]
 let main argv =
+    let runner = new KernelRunner()
 (*
     let metric = new InstructionEnergyMetric()
     metric.MinInstr <- 1
@@ -33,12 +35,20 @@ let main argv =
     metric.PerStepDuration <- 20000
     metric.ThreadCount <- 2048L
     *)
+    // Test vector addition
     let a = Array.create 10 10.0f
     let b = Array.create 10 10.0f
     let c = Array.zeroCreate<float32> 10
-    let runner = new KernelRunner()
-    runner.Run(<@ VectorAdd(a, b, c) @>, [| (10L, 10L) |])
-    5
+    runner.Run(<@ VectorAdd(a, b, c) @>, 
+               [| (10L, 10L) |])
+
+    // Test matrix multiplication
+    let matA = Array2D.create 64 64 2.0f 
+    let matB = Array2D.create 64 64 2.0f
+    let matC = Array2D.zeroCreate<float32> 64 64
+    runner.Run(<@ MatrixMult(matA, matB, matC) @>, 
+               [| (matA.GetLongLength(0), 8L); (matA.GetLongLength(1), 8L) |])
+    
     // Test prettyPrinting
     //let (str, a) = (FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)).Value
     //printf "%s" str
@@ -76,3 +86,4 @@ let main argv =
     printfn "%A" argv
     *)
     0 // return an integer exit code *)
+    0

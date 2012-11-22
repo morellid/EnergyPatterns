@@ -140,15 +140,17 @@ type KernelRunner() =
             let actualArg = arg :?> 'T[,]
             let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, actualArg.LongLength)
             if shouldInit then
-                let offset = Cloo.SysIntX2(0,0)
-                q.WriteToBuffer<'T>(actualArg, buffer, false, offset, offset, offset, null)
+                let offset = Cloo.SysIntX2(0, 0)                
+                let region = Cloo.SysIntX2(actualArg.GetLength(0), actualArg.GetLength(1))
+                q.WriteToBuffer<'T>(actualArg, buffer, false, offset, offset, region, null)
             buffer :> ComputeMemory
         | _ ->
             let actualArg = arg :?> 'T[,,]
             let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, actualArg.LongLength)
             if shouldInit then
-                let offset = Cloo.SysIntX3(0,0,0)
-                q.WriteToBuffer<'T>(actualArg, buffer, false, offset, offset, offset, null)
+                let offset = Cloo.SysIntX3(0, 0, 0)
+                let region = Cloo.SysIntX3(actualArg.GetLength(0), actualArg.GetLength(1), actualArg.GetLength(2)) 
+                q.WriteToBuffer<'T>(actualArg, buffer, false, offset, offset, region, null)
             buffer :> ComputeMemory
             
     member private this.ReadBuffer<'T when 'T: struct>(c:ComputeContext, q:ComputeCommandQueue, arg:obj, dims, buffer: ComputeBuffer<'T>) =
