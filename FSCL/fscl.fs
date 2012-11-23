@@ -6,7 +6,7 @@ module fscl =
     let get_global_id(dim:int) = 
         0
     let get_local_id(dim:int) =
-        0s
+        0
     let get_global_size(dim:int) =
         0
     let get_local_size(dim:int) =

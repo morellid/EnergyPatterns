@@ -5,6 +5,9 @@ open Cloo
 open Microsoft.FSharp.Quotations
 open System
 open Microsoft.FSharp.Reflection
+open EnergyPatterns.RemoteAmmeter
+open System.IO
+
 // The below one needs PowerPack :(
 open Microsoft.FSharp.Linq.QuotationEvaluation
 
@@ -13,13 +16,20 @@ type EnergyInstantiationResult = double
 type EnergyEvaluationResult = Expr
 
 type InstructionEnergyMetric(ammeterIp) =
+    inherit AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyEvaluationResult, EnergyInstantiationResult>()
+
     let mutable min_instr = 1
     let mutable max_instr = 1
     let mutable step = 1
     let mutable per_step_duration = 0
     let mutable thread_count = 128L
+    let mutable dumpFile = None
 
     member val AmmeterIp = ammeterIp with get, set
+
+    member this.DumpFolder
+        with get() = dumpFile
+        and set v = dumpFile <- v
 
     member this.MinInstr 
         with get() = min_instr
@@ -41,74 +51,109 @@ type InstructionEnergyMetric(ammeterIp) =
         with get() = thread_count
         and set count = thread_count <- count
 
-    interface AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyEvaluationResult, EnergyInstantiationResult> with
-        member this.Profile(device) =
-            // Setup CL
-            let computePlatform = device.Platform;
-            let contextProperties = new ComputeContextPropertyList(computePlatform)
-            let devices = new System.Collections.Generic.List<ComputeDevice>();
-            devices.Add(device)
-            let computeContext = new ComputeContext(devices, contextProperties, null, System.IntPtr.Zero);
-            
-            // Calculate list of instr count
-            let instrCount = seq { 
-                                    let i = ref this.MinInstr
-                                    while !i <= this.MaxInstr do 
-                                        yield !i
-                                        i := !i + this.Step
-                                 }
+    override this.Profile(device:ComputeDevice) =
+        // Create ammeter client
+        let client = new Client(this.AmmeterIp)
 
-            // For each instr count run the test
-            for currInstr in instrCount do
-                let computeProgram = new ComputeProgram(computeContext, [| Tools.KernelBuilder.BuildKernel(currInstr) |])
-                computeProgram.Build(devices, "", null, System.IntPtr.Zero)
-                let computeKernel = computeProgram.CreateKernel("run")
-                let computeQueue = new ComputeCommandQueue(computeContext, device, ComputeCommandQueueFlags.OutOfOrderExecution)
-                let inputBuffer = new ComputeBuffer<float>(computeContext, ComputeMemoryFlags.ReadOnly, 4L)
-                let outputBuffer = new ComputeBuffer<float>(computeContext, ComputeMemoryFlags.WriteOnly, 4L)
-                computeKernel.SetMemoryArgument(0, inputBuffer)
-                computeKernel.SetMemoryArgument(1, outputBuffer)
-                computeQueue.WriteToBuffer([| 1.0 |], inputBuffer, true, null) 
+        let mutable result = []
 
-                // Run kernel n times to guarantee a total time >= PerStepDuration
-                let timer = System.Diagnostics.Stopwatch()
-                timer.Start()
-                for i in 0 .. 10 do
-                    computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
-                    computeQueue.Finish()
-                timer.Stop()
+        // Setup CL
+        let computePlatform = device.Platform;
+        let contextProperties = new ComputeContextPropertyList(computePlatform)
+        let devices = new System.Collections.Generic.List<ComputeDevice>();
+        devices.Add(device)
+        let computeContext = new ComputeContext(devices, contextProperties, null, System.IntPtr.Zero);
+            
+        // Calculate list of instr count
+        let instrCount = seq { 
+                                let i = ref this.MinInstr
+                                while !i <= this.MaxInstr do 
+                                    yield !i
+                                    i := !i + this.Step
+                                }
 
-                let iterations = (int) ((double)this.PerStepDuration * 10.0 / ((double)timer.ElapsedMilliseconds))
-                for i in 0 .. iterations - 1 do
-                    computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
-                    computeQueue.Finish()
-            []
+        // For each instr count run the test
+        for currInstr in instrCount do
+            let computeProgram = new ComputeProgram(computeContext, [| Tools.KernelBuilder.BuildKernel(currInstr) |])
+            computeProgram.Build(devices, "", null, System.IntPtr.Zero)
+            let computeKernel = computeProgram.CreateKernel("run")
+            let computeQueue = new ComputeCommandQueue(computeContext, device, ComputeCommandQueueFlags.OutOfOrderExecution)
+            let inputBuffer = new ComputeBuffer<float>(computeContext, ComputeMemoryFlags.ReadOnly, 4L)
+            let outputBuffer = new ComputeBuffer<float>(computeContext, ComputeMemoryFlags.WriteOnly, 4L)
+            computeKernel.SetMemoryArgument(0, inputBuffer)
+            computeKernel.SetMemoryArgument(1, outputBuffer)
+            computeQueue.WriteToBuffer([| 1.0 |], inputBuffer, true, null) 
+
+            // Run kernel n times to guarantee a total time >= PerStepDuration
+            let timer = System.Diagnostics.Stopwatch()
+            timer.Start()
+            for i in 0 .. 10 do
+                computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
+                computeQueue.Finish()
+            timer.Stop()
+
+            let iterations = (int) ((double)this.PerStepDuration * 10.0 / ((double)timer.ElapsedMilliseconds))
+            timer.Reset()
+            let startMessage = client.start()
+            timer.Start()
+            for i in 0 .. iterations - 1 do
+                computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
+                computeQueue.Finish()
+            timer.Stop()
+            let endMessage = client.stop()
+
+            // Energy per instruction
+            let avgEnergy = Double.Parse(endMessage.Replace(",", "."))
+            let energyPerInstr = ((avgEnergy / 1000.0) * (double)timer.ElapsedMilliseconds) / ((double)currInstr)
+            result <- result @ [ (currInstr, energyPerInstr) ]
+
+        // Dump on file if enable
+        if dumpFile.IsSome then
+            if not (Directory.Exists(dumpFile.Value)) then
+                Directory.CreateDirectory(dumpFile.Value) |> ignore
+
+            let fileName = dumpFile.Value + "\\" + "Profiling-" + this.GetType().Name + "-" + device.Name.Replace(' ', '_') + ".csv"  
+            let content = ref "Instructions,EnergyPerInstruction;"
+            List.iter (fun (instr:int,en:float) ->
+                content := !content + instr.ToString() + "," + en.ToString() + ";") result
+            File.WriteAllText(fileName, !content)
+        result
             
             
-        member this.Evaluate(profiling, expr:Expr) =
-            let kernel = Tools.KernelTools.ExtractKernelDefinition(expr)
-            let count = Tools.InstructionCountEstimator.EstimateInstructionCount(kernel)
-            if (count.IsSome) then
-                count.Value
-            else
-                raise (MetricBase.Exceptions.MetricEvaluationError("Cannot evaluate instruction count\n"))
+    override this.Evaluate(profiling, expr:Expr) =
+        let kernel = Tools.KernelTools.ExtractKernelDefinition(expr)
+        let count = Tools.InstructionCountEstimator.EstimateInstructionCount(kernel)
+        if (count.IsSome) then
+            count.Value
+        else
+            raise (MetricBase.Exceptions.MetricEvaluationError("Cannot evaluate instruction count\n"))
                 
-        member this.Instantiate(profiling, evaluation, invocation) =
-            // Evaluation is something like "<compute instruction>"
-            // To compute instructions we bind the variables that are free in <compute instruction>
-            let (methodInfo, args) = MetricBase.Tools.KernelTools.ExtractKernelInvocation(invocation)
-            let parameters = methodInfo.GetParameters()
-            let freeVars = Seq.toList (evaluation.GetFreeVars())
+    override this.Instantiate(profiling, evaluation:Expr, invocation) =
+        // Evaluation is something like "<compute instruction>"
+        // To compute instructions we bind the variables that are free in <compute instruction>
+        let (methodInfo, args) = MetricBase.Tools.KernelTools.ExtractKernelInvocation(invocation)
+        let parameters = methodInfo.GetParameters()
+        let freeVars = Seq.toList (evaluation.GetFreeVars())
 
-            let findByName name vl =
-                List.tryFind (fun (v: Var) -> v.Name = name) vl
+        let findByName name vl =
+            List.tryFind (fun (v: Var) -> v.Name = name) vl
 
-            let mutable finalExpr =  evaluation
-            for i = 0 to args.Length - 1 do
-                let freeVar = findByName (parameters.[i].Name) freeVars
-                if freeVar.IsSome then
-                    finalExpr <- Expr.Let(freeVar.Value, args.[i], finalExpr)
+        let mutable finalExpr =  evaluation
+        for i = 0 to args.Length - 1 do
+            let freeVar = findByName (parameters.[i].Name) freeVars
+            if freeVar.IsSome then
+                finalExpr <- Expr.Let(freeVar.Value, args.[i], finalExpr)
                                            
-            let result = finalExpr.EvalUntyped()
-            result :?> double
+        let result = finalExpr.EvalUntyped()
+        
+        // Dump on file if enable
+        if dumpFile.IsSome then
+            if not (Directory.Exists(dumpFile.Value)) then
+                Directory.CreateDirectory(dumpFile.Value) |> ignore
+
+            let fileName = dumpFile.Value + "\\" + "Instatiate-" + this.GetType().Name + "-" + methodInfo.Name + ".csv"  
+            let content = ref ("Instructions;" + (result :?> double).ToString())
+            File.WriteAllText(fileName, !content)
+
+        result :?> double
             

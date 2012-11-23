@@ -3,16 +3,47 @@
 
 open FSCL
 open InstructionEnergy
+open TransferEnergy
 open MetricBase
 open Cloo
 open Microsoft.FSharp.Collections
+
+[<ReflectedDefinition>]
+let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[,], [<Local>] block:float32[,], filterWidth:int) =
+    let output_width = fscl.get_global_size(0)
+    let input_width = output_width + filterWidth - 1
+    let xOut = fscl.get_global_id(0)
+    let yOut = fscl.get_global_id(1)
+
+    let local_x = fscl.get_local_id(0)
+    let local_y = fscl.get_local_id(1)
+    let group_width = fscl.get_local_size(0)
+    let group_height = fscl.get_local_size(1)
+    let block_width = group_width + filterWidth - 1
+    let block_height = group_height + filterWidth - 1
+
+    //Set required rows into the LDS
+    let mutable global_start_x = xOut
+    let mutable global_start_y = yOut
+    for local_start_x in local_x .. group_width .. block_width do
+        for local_start_y in local_y .. group_height .. block_height do    
+            block.[local_start_y, local_start_x] <- input.[global_start_y, global_start_x]
+            global_start_x <- global_start_x + group_width
+            global_start_y <- global_start_y + group_height
+        
+    let mutable sum = 0.0f
+    for r = 0 to filterWidth - 1 do
+        for c = 0 to filterWidth - 1 do
+            sum <- filter.[r,c] * block.[local_y + r, local_x + c]
+
+    output.[yOut,xOut] <- sum
 
 [<Kernel>]
 [<ReflectedDefinition>]
 let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
     let x = fscl.get_global_id(0)
     let y = fscl.get_global_id(1)
-    
+
     let mutable accum = 0.0f
     for k = 0 to a.GetLength(1) - 1 do
         accum <- accum + (a.[x,k] * b.[k,y])
@@ -27,6 +58,32 @@ let VectorAdd(a: float32[], b: float32[], c: float32[]) =
 [<EntryPoint>]
 let main argv =
     let runner = new KernelRunner()
+
+    // Dump instruction energy profiling
+    let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
+    instructionMetric.DumpFolder <- Some("Dump")
+    instructionMetric.MinInstr <- 1
+    instructionMetric.MaxInstr <- 2048
+    instructionMetric.Step <- 100
+    instructionMetric.PerStepDuration <- 20000
+    instructionMetric.ThreadCount <- 2048L
+    for device in ComputePlatform.Platforms.[0].Devices do
+        instructionMetric.Profile(device) |> ignore
+        
+    // Dump memory transfer energy profiling
+    let transferMetric = TransferEnergyMetric("131.114.88.115") 
+    transferMetric.DumpFolder <- Some("Dump")
+    transferMetric.MinSize <- (1 <<< 10)
+    transferMetric.MaxSize <- (32 <<< 20)
+    transferMetric.Step <- (1 <<< 20)
+    transferMetric.PerStepDuration <- 20000
+    transferMetric.SrcInfo <- TransferEnergy.Data.TransferEndpoint()
+    transferMetric.DstInfo <- TransferEnergy.Data.TransferEndpoint()
+    transferMetric.SrcInfo.IsHostPtr <- true
+    transferMetric.DstInfo.IsHostPtr <- false
+    for device in ComputePlatform.Platforms.[0].Devices do
+        transferMetric.Profile(device) |> ignore
+        
 (*
     let metric = new InstructionEnergyMetric()
     metric.MinInstr <- 1

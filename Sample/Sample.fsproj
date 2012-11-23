@@ -69,6 +69,11 @@
       <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\TransferEnergyMetric\TransferEnergyMetric.fsproj">
+      <Name>TransferEnergyMetric</Name>
+      <Project>{a84732b7-8090-4259-b0b6-106a330df59d}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
