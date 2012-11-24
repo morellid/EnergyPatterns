@@ -86,13 +86,22 @@ type InstructionEnergyMetric(ammeterIp) =
 
             // Run kernel n times to guarantee a total time >= PerStepDuration
             let timer = System.Diagnostics.Stopwatch()
-            timer.Start()
-            for i in 0 .. 10 do
-                computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
-                computeQueue.Finish()
-            timer.Stop()
+            let mutable testIterations = 1
+            let mutable reliableTest = false
+            while (not reliableTest) do
+                timer.Reset()
+                timer.Start()
+                for i in 0 .. testIterations do
+                    computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
+                    computeQueue.Finish()
+                timer.Stop()
 
-            let iterations = (int) ((double)this.PerStepDuration * 10.0 / ((double)timer.ElapsedMilliseconds))
+                if (timer.ElapsedMilliseconds > 100L) then
+                    reliableTest <- true
+                else
+                    testIterations <- testIterations * 10
+
+            let iterations = (int) ((double)this.PerStepDuration * (double)testIterations / ((double)timer.ElapsedMilliseconds))
             timer.Reset()
             let startMessage = client.start()
             timer.Start()

@@ -59,8 +59,8 @@ let main argv =
     let runner = new KernelRunner()
 
     // Test conversion with new pipeline
-    let oldel = FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)
-    let newel = FSCL.KernelBinding.ConvertToCLKernelNew(<@ MatrixMult @>)
+    //let oldel = FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)
+    //let newel = FSCL.KernelBinding.ConvertToCLKernelNew(<@ MatrixMult @>)
 
     // Dump instruction energy profiling
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
