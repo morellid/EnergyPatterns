@@ -4,6 +4,8 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Core
 open System 
 open System.Collections.Generic
+open FSCL.Transformation
+open FSCL.Transformation.Processors
 
 [<System.Flags>]
 type ArrayAccessMode =
@@ -234,6 +236,40 @@ type KernelBinding() =
     static member ConvertToCLKernel (kernel: Expr) =
         let (methodInfo, parameters) = FSCL.Util.GetKernelFromName(kernel)
         KernelBinding.ConvertToCLKernel(methodInfo)
+
+    static member ConvertToCLKernelNew (kernel:Expr) =        
+        let discovery = new KernelDiscoveryStage()
+        let signature = new KernelSignatureTransformationStage()
+        let body = new KernelBodyTransformationStage()
+
+        discovery.DiscoveryProcessors.Add(new KernelByNameDiscoveryProcessor())
+
+        signature.ParameterProcessors.Add(new DefaultParameterProcessor())
+        signature.SignatureProcessors.Add(new DefaultSignatureProcessor())
+
+        body.CallProcessors.Add(new ImplicitCallProcessor())
+        body.CallProcessors.Add(new ArrayAccessProcessor())
+        body.CallProcessors.Add(new ArithmeticOperationProcessor())
+
+        body.IfThenElseProcessors.Add(new DefaultIfThenElseProcessor())
+        body.IntegerRangeLoopProcessors.Add(new DefaultIntegerRangeLoopProcessor())
+        body.WhileLoopProcessors.Add(new DefaultWhileLoopProcessor())
+        body.LetProcessors.Add(new DefaultLetProcessor())
+        body.SequentialProcessors.Add(new DefaultSequentialProcessor())
+        body.VarProcessors.Add(new DefaultVarProcessor())
+        body.VarSetProcessors.Add(new DefaultVarSetProcessor())
+        body.ValueProcessors.Add(new DefaultValueProcessor())
+
+        body.TypeProcessors.Add(new PlainTypeProcessor())
+        body.TypeProcessors.Add(new ArrayTypeProcessor())
+
+        let initialState = new TransformationGlobalState()
+
+        // Run pipeline
+        let pipeline = discovery.Run >> signature.Run >> body.Run
+        (kernel, initialState) |> pipeline
+
+  
   
                 
                 

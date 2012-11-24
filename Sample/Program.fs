@@ -9,7 +9,7 @@ open Cloo
 open Microsoft.FSharp.Collections
 
 [<ReflectedDefinition>]
-let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[,], [<Local>] block:float32[,], filterWidth:int) =
+let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[,], [<Local>]block:float32[,], filterWidth:int) =
     let output_width = fscl.get_global_size(0)
     let input_width = output_width + filterWidth - 1
     let xOut = fscl.get_global_id(0)
@@ -35,7 +35,6 @@ let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[
     for r = 0 to filterWidth - 1 do
         for c = 0 to filterWidth - 1 do
             sum <- filter.[r,c] * block.[local_y + r, local_x + c]
-
     output.[yOut,xOut] <- sum
 
 [<Kernel>]
@@ -58,6 +57,10 @@ let VectorAdd(a: float32[], b: float32[], c: float32[]) =
 [<EntryPoint>]
 let main argv =
     let runner = new KernelRunner()
+
+    // Test conversion with new pipeline
+    let oldel = FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)
+    let newel = FSCL.KernelBinding.ConvertToCLKernelNew(<@ MatrixMult @>)
 
     // Dump instruction energy profiling
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
