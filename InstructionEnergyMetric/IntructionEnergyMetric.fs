@@ -11,7 +11,7 @@ open System.IO
 // The below one needs PowerPack :(
 open Microsoft.FSharp.Linq.QuotationEvaluation
 
-type EnergyProfilingResult = (int * double) list
+type EnergyProfilingResult = (int * double * double * int64) list
 type EnergyInstantiationResult = double
 type EnergyEvaluationResult = Expr
 
@@ -112,9 +112,14 @@ type InstructionEnergyMetric(ammeterIp) =
             let endMessage = client.stop()
 
             // Energy per instruction
-            let avgEnergy = Double.Parse(endMessage.Replace(",", "."))
-            let energyPerInstr = ((avgEnergy / 1000.0) * (double)timer.ElapsedMilliseconds) / ((double)currInstr)
-            result <- result @ [ (currInstr, energyPerInstr) ]
+            let avgEnergy = Double.TryParse(endMessage.Replace(",", "."))
+            match avgEnergy with
+            | (true, v) ->
+                let energyPerInstr = ((v / 1000.0) * (double)timer.ElapsedMilliseconds) / ((double)currInstr)
+                result <- result @ [ (currInstr, v, energyPerInstr, timer.ElapsedMilliseconds) ]
+            | (false, _) ->
+                let t = 0
+                ()
 
         // Dump on file if enable
         if dumpFile.IsSome then
@@ -122,9 +127,9 @@ type InstructionEnergyMetric(ammeterIp) =
                 Directory.CreateDirectory(dumpFile.Value) |> ignore
 
             let fileName = dumpFile.Value + "\\" + "Profiling-" + this.GetType().Name + "-" + device.Name.Replace(' ', '_') + ".csv"  
-            let content = ref "Instructions,EnergyPerInstruction;"
-            List.iter (fun (instr:int,en:float) ->
-                content := !content + instr.ToString() + "," + en.ToString() + ";") result
+            let content = ref "Instructions,AvgEnergy,EnergyPerInstruction,Duration;\n"
+            List.iter (fun (instr:int,avgen,en:float,time) ->
+                content := !content + instr.ToString() + "," + avgen.ToString() + "," + en.ToString() + "," + time.ToString() + ";\n") result
             File.WriteAllText(fileName, !content)
         result
             

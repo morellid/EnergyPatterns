@@ -107,22 +107,32 @@ type TransferEnergyMetric(ammeterIp:string) =
             else
                 dstBuffer <- Some(AllocateBuffer(computeContext, currSize, this.DstInfo))
 
-            // Determine number of iterations to guarantee per step duration
-            let timer = Stopwatch()
-            timer.Start()                        
-            if this.SrcInfo.IsHostPtr then
-                if this.DstInfo.IsHostPtr then
-                    HostPtrToHostPtr(currSize, this.Validate, srcPtr.Value, dstPtr.Value)
+            // Determine number of iterations to guarantee per step duration            
+            let timer = System.Diagnostics.Stopwatch()
+            let mutable testIterations = 1
+            let mutable reliableTest = false
+            while (not reliableTest) do
+                timer.Reset()
+                timer.Start()
+                for i in 0 .. testIterations do
+                    if this.SrcInfo.IsHostPtr then
+                        if this.DstInfo.IsHostPtr then
+                            HostPtrToHostPtr(currSize, this.Validate, srcPtr.Value, dstPtr.Value)
+                        else
+                            HostPtrToBuffer(computeContext, computeQueue, currSize, this.Validate, this.DstInfo, srcPtr.Value, dstBuffer.Value)
+                    elif this.DstInfo.IsHostPtr then
+                        BufferToHostPtr(computeContext, computeQueue, currSize, this.Validate, this.SrcInfo, srcBuffer.Value, dstPtr.Value)  
+                    else  
+                        BufferToBuffer(computeContext, computeQueue, currSize, this.Validate, this.SrcInfo, this.DstInfo, srcBuffer.Value, dstBuffer.Value)       
+                timer.Stop()
+
+                if (timer.ElapsedMilliseconds > 100L) then
+                    reliableTest <- true
                 else
-                    HostPtrToBuffer(computeContext, computeQueue, currSize, this.Validate, this.DstInfo, srcPtr.Value, dstBuffer.Value)
-            elif this.DstInfo.IsHostPtr then
-                BufferToHostPtr(computeContext, computeQueue, currSize, this.Validate, this.SrcInfo, srcBuffer.Value, dstPtr.Value)  
-            else  
-                BufferToBuffer(computeContext, computeQueue, currSize, this.Validate, this.SrcInfo, this.DstInfo, srcBuffer.Value, dstBuffer.Value)       
-            timer.Stop()
+                    testIterations <- testIterations * 10
                             
             // Execute profiling (excluding allocation)
-            let iterations = (int) ((double)this.PerStepDuration * 10.0 / ((double)timer.ElapsedMilliseconds))
+            let iterations = (int) ((double)this.PerStepDuration * (double)testIterations / ((double)timer.ElapsedMilliseconds))
                 
             timer.Reset()
             let startResult = client.start() 

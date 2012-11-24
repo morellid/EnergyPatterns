@@ -66,8 +66,8 @@ let main argv =
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
     instructionMetric.DumpFolder <- Some("Dump")
     instructionMetric.MinInstr <- 1
-    instructionMetric.MaxInstr <- 2048
-    instructionMetric.Step <- 100
+    instructionMetric.MaxInstr <- 2000
+    instructionMetric.Step <- 200
     instructionMetric.PerStepDuration <- 20000
     instructionMetric.ThreadCount <- 2048L
     for device in ComputePlatform.Platforms.[0].Devices do
@@ -75,6 +75,7 @@ let main argv =
         
     // Dump memory transfer energy profiling
     let transferMetric = TransferEnergyMetric("131.114.88.115") 
+    transferMetric.Validate <- true
     transferMetric.DumpFolder <- Some("Dump")
     transferMetric.MinSize <- (1 <<< 10)
     transferMetric.MaxSize <- (32 <<< 20)
