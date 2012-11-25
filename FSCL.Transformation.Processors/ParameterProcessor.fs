@@ -1,4 +1,18 @@
-﻿namespace FSCL.Transformation.Processors
+﻿namespace FSCL
+
+open System 
+
+[<AllowNullLiteral>]
+type ConstantAttribute =
+    inherit Attribute
+    new() =  { }
+    
+[<AllowNullLiteral>]
+type LocalAttribute =
+    inherit Attribute
+    new() =  { }
+
+namespace FSCL.Transformation.Processors
 
 open FSCL.Transformation
 open System.Collections.Generic
@@ -40,17 +54,27 @@ type DefaultParameterProcessor() =
     interface ParameterProcessor with
         member this.Handle(p, engine:KernelSignatureTransformationStage) =
             if p.ParameterType.IsArray then
-                let dimensions = GetArrayDimensions(p.ParameterType)
-                let stage = engine :> TransformationStage<MethodInfo, (Expr * String)>        
-                let mutable data = stage.TransformationData("SIGNATURE_ARRAY_SIZE_PARAMETERS")   
-                if data.IsNone then
-                    stage.AddTransformationData("SIGNATURE_ARRAY_SIZE_PARAMETERS", Dictionary<ParameterInfo, string list>())  
-                    data <- stage.TransformationData("SIGNATURE_ARRAY_SIZE_PARAMETERS") 
-                       
-                let castedData = data.Value :?> Dictionary<ParameterInfo, string list>
-                castedData.Add(p, List.ofSeq (seq { for d = 0 to dimensions - 1 do yield GenerateSizeAdditionalArg(p.Name, d) }))
+                let dimensions = GetArrayDimensions(p.ParameterType)      
+                let mutable data = engine.TransformationData("KERNEL_PARAMETER_TABLE")   
+                if data.IsNone then 
+                    raise (new KernelTransformationException("KERNEL_PARAMETER_TABLE global data cannot be found, but it is required by ParameterProcessor to execute"))
+                               
+                let castedData = data.Value :?> KernelParameterTable
+                let entry = castedData.[p]
+                entry.SizeParameters <- List.ofSeq (seq { for d = 0 to dimensions - 1 do yield GenerateSizeAdditionalArg(p.Name, d) })
 
-                (true, Some("global " + HandleParameterType(p.ParameterType.GetElementType()) + "* " + p.Name))
+                // If the parameters is tagged with Contant attribute, prepend constant keyword, else global
+                let constantAttribute = p.GetCustomAttribute<FSCL.ConstantAttribute>()
+                let localAttribute = p.GetCustomAttribute<FSCL.LocalAttribute>()
+                if constantAttribute <> null then
+                    entry.AddressSpace <- KernelParameterAddressSpace.ConstantSpace
+                    (true, Some("constant " + HandleParameterType(p.ParameterType.GetElementType()) + "* " + p.Name))
+                elif localAttribute <> null then
+                    entry.AddressSpace <- KernelParameterAddressSpace.LocalSpace
+                    (true, Some("local " + HandleParameterType(p.ParameterType.GetElementType()) + "* " + p.Name))
+                else    
+                    entry.AddressSpace <- KernelParameterAddressSpace.GlobalSpace
+                    (true, Some("global " + HandleParameterType(p.ParameterType.GetElementType()) + "* " + p.Name))
             else
                 (true, Some(HandleParameterType(p.ParameterType) + " " + p.Name))
 

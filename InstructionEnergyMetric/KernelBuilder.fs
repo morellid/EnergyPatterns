@@ -2,9 +2,9 @@
 
 type internal KernelBuilder() =
     static member BuildKernel(numOps) =
-        let mutable kernel = "kernel void run(global float* input, global float* output) {\n
-                                 float e1 = input[0];\n
-                                 float e2 = 10;\n"
+        let mutable kernel = "kernel void run(global float* input, global float* output) {\n                                 
+                                 volatile float e1 = input[0];\n
+                                 volatile float e2 = 10;\n"
         for i = 0 to numOps - 1 do
             if (i % 2 = 0) then
                 kernel <- kernel + "e1 += e2;\n";

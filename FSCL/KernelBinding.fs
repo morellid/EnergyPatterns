@@ -237,7 +237,7 @@ type KernelBinding() =
         let (methodInfo, parameters) = FSCL.Util.GetKernelFromName(kernel)
         KernelBinding.ConvertToCLKernel(methodInfo)
 
-    static member ConvertToCLKernelNew (kernel:Expr) =        
+    static member internal DefaultPipeline() =        
         let discovery = new KernelDiscoveryStage()
         let signature = new KernelSignatureTransformationStage()
         let body = new KernelBodyTransformationStage()
@@ -263,12 +263,18 @@ type KernelBinding() =
         body.TypeProcessors.Add(new PlainTypeProcessor())
         body.TypeProcessors.Add(new ArrayTypeProcessor())
 
-        let initialState = new TransformationGlobalState()
-
         // Run pipeline
-        let pipeline = discovery.Run >> signature.Run >> body.Run
-        (kernel, initialState) |> pipeline
+        ((discovery --> signature) + signature) --> body
 
+    static member Compile (kernel:Reflection.MethodInfo) =  
+        let f = KernelBinding.DefaultPipeline()
+        let result = f.Run(None, Some(kernel))
+        (result, f.TransformationDataCopy)
+        
+    static member Compile (kernel:Expr) =  
+        let f = KernelBinding.DefaultPipeline()
+        let result = f.Run(Some(kernel), None)
+        (result, f.TransformationDataCopy)
   
   
                 

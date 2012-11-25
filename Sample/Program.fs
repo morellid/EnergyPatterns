@@ -60,15 +60,15 @@ let main argv =
 
     // Test conversion with new pipeline
     //let oldel = FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)
-    //let newel = FSCL.KernelBinding.ConvertToCLKernelNew(<@ MatrixMult @>)
 
     // Dump instruction energy profiling
+    (*
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
     instructionMetric.DumpFolder <- Some("Dump")
     instructionMetric.MinInstr <- 1
-    instructionMetric.MaxInstr <- 2000
+    instructionMetric.MaxInstr <- 6000
     instructionMetric.Step <- 200
-    instructionMetric.PerStepDuration <- 20000
+    instructionMetric.PerStepDuration <- 15000
     instructionMetric.ThreadCount <- 2048L
     for device in ComputePlatform.Platforms.[0].Devices do
         instructionMetric.Profile(device) |> ignore
@@ -88,7 +88,7 @@ let main argv =
     for device in ComputePlatform.Platforms.[0].Devices do
         transferMetric.Profile(device) |> ignore
         
-(*
+
     let metric = new InstructionEnergyMetric()
     metric.MinInstr <- 1
     metric.MaxInstr <- 2048

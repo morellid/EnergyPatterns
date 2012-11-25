@@ -21,17 +21,14 @@ type DefaultSignatureProcessor() =
             expr
             
     let GetSizeParameters(var, engine:KernelSignatureTransformationStage) =   
-        if (engine.TransformationData("SIGNATURE_ARRAY_SIZE_PARAMETERS")).IsSome then
-            let data = engine.TransformationData("SIGNATURE_ARRAY_SIZE_PARAMETERS").Value :?> Dictionary<ParameterInfo, string list>
-            let mutable sizeParameters = []
-            for k in data do
-                if k.Key.Name = var then
-                    sizeParameters <- k.Value
-            if sizeParameters.IsEmpty then
-                raise (KernelTransformationException("Cannot determine the size variables of array " + var + ". This means no parameter processor produced the additional size parameters"))
-            sizeParameters
-        else
-            raise (KernelTransformationException("Cannot find SIGNATURE_ARRAY_SIZE_PARAMETERS transformation data, which is required to execute KernelSignatureProcessor"))
+        let data = engine.TransformationData("KERNEL_PARAMETER_TABLE").Value :?> KernelParameterTable
+        let mutable sizeParameters = []
+        for k in data do
+            if k.Key = var then
+                sizeParameters <- k.Value.SizeParameters
+        if sizeParameters.IsEmpty then
+            raise (KernelTransformationException("Cannot determine the size variables of array " + var.Name + ". This means no parameter processor produced the additional size parameters"))
+        sizeParameters
             
     interface SignatureProcessor with
         member this.Handle(kernel, engine:KernelSignatureTransformationStage) =
@@ -41,12 +38,19 @@ type DefaultSignatureProcessor() =
                     body
                 | _ ->
                     raise (KernelTransformationException("A kernel definition must provide a function marked with ReflectedDefinition attribute [" + kernel.Name + "]"))
+
             // Convert params and produce additional params
             let kernelParams = kernel.GetParameters()
+            // Create KERNEL_PARAMETER_TABLE
+            let table = KernelParameterTable()
+            for par in kernelParams do
+                table.Add(par, new KernelParameterInfo(par))
+            engine.AddTransformationData("KERNEL_PARAMETER_TABLE", table)
+
             let convertedParams = Seq.ofArray (Array.map (engine.Process:ParameterInfo -> String) kernelParams) 
             let additionalParams = seq {
                 for param in kernelParams do
-                    let ap = GetSizeParameters(param.Name, engine)
+                    let ap = GetSizeParameters(param, engine)
                     for p in ap do
                         yield " int " + p }
                    

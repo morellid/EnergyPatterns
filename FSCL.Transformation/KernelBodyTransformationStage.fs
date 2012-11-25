@@ -206,9 +206,8 @@ and KernelBodyTransformationStage() =
             | _ -> 
                 raise (KernelTransformationException("Unrecognized construct in kernel " + expression.ToString()))
                
-    override this.Run((body:Expr, signature:String), state) =
-        this.SetTransformationGlobalState(state)
+    override this.Run((body:Expr, signature:String)) =
         let body = this.Process(body)
-        (body, this.TransformationDataCopy)
+        signature + " {\n" + body + "\n}\n"
 
 

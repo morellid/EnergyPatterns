@@ -5,6 +5,8 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Reflection
 open Microsoft.FSharp.Linq.QuotationEvaluation
+open FSCL.Transformation.Processors
+open FSCL.Transformation
         
 type FSCLDeviceData(device:ComputeDevice, context, queue) =
     member val Device = device with get
@@ -40,7 +42,7 @@ type KernelRunner() =
                 raise (new KernelDefinitionException("The kernel " + kernel.Name + " must be labeled with ReflectedDefinition attribute to be recognized"))
        
         // Convert kernel         
-        let conversionData = KernelBinding.ConvertToCLKernel(kernel)
+        let (conversionData, state) = KernelBinding.Compile(kernel)
 
         // Discover platform and device
         let platform = ComputePlatform.Platforms.[platformIndex]
@@ -52,7 +54,8 @@ type KernelRunner() =
         let mutable kernelIndex = List.tryFindIndex(fun (k:FSCLKernelData) -> k.MethodInfo = kernel) globalData.Kernels
         if kernelIndex.IsNone then
             // Store kernel
-            globalData.Kernels <- globalData.Kernels @ [ new FSCLKernelData(kernel, snd(conversionData.Value)) ]
+            let argInfo = state.["KERNEL_PARAMETER_TABLE"] :?> KernelParameterTable
+            globalData.Kernels <- globalData.Kernels @ [ new FSCLKernelData(kernel, argInfo) ]
             kernelIndex <- Some(globalData.Kernels.Length - 1)
         let kernelData = globalData.Kernels.[kernelIndex.Value]
 
@@ -71,8 +74,7 @@ type KernelRunner() =
            
         // Bind the kernel to the device storing appropriate kernel implementation                                             
         // Create and build program
-        let (kernelSource:string, argInfo:(ParameterInfo * ArrayAccessMode option) list) = conversionData.Value  
-        let computeProgram = new ComputeProgram(globalData.Devices.[deviceIndex.Value].Context, kernelSource)
+        let computeProgram = new ComputeProgram(globalData.Devices.[deviceIndex.Value].Context, conversionData)
         try
             computeProgram.Build(devices, "", null, System.IntPtr.Zero)
         with
@@ -196,10 +198,13 @@ type KernelRunner() =
 
                 // Check if read or read_write mode
                 let mutable mustInitBuffer = false
-                let matchingParameter = List.tryFind (fun (p:ParameterInfo, access) -> par.Name = p.Name) (matchingKernel.Value.Parameters)
-                if (matchingParameter.IsSome) then
-                    let access = (snd(matchingParameter.Value))
-                    mustInitBuffer <- access.IsSome && ((access.Value &&& ArrayAccessMode.Read) = ArrayAccessMode.Read)
+                let matchingParameter = matchingKernel.Value.Parameters.[par]
+                let access = matchingParameter.Access
+                mustInitBuffer <- 
+                    ((matchingParameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace) ||
+                     (matchingParameter.AddressSpace = KernelParameterAddressSpace.ConstantSpace)) &&
+                    ((access = KernelParameterAccessMode.ReadOnly) || 
+                     (access = KernelParameterAccessMode.ReadWrite))
 
                 // Create buffer and eventually init it
                 let t = par.ParameterType.GetElementType()
@@ -260,10 +265,12 @@ type KernelRunner() =
 
                 // Check if write or read_write mode
                 let mutable mustReadBuffer = false
-                let matchingParameter = List.tryFind (fun (p:ParameterInfo, access) -> par.Name = p.Name) (matchingKernel.Value.Parameters)
-                if (matchingParameter.IsSome) then
-                    let access = (snd(matchingParameter.Value))
-                    mustReadBuffer <- access.IsSome && ((access.Value &&& ArrayAccessMode.Write) = ArrayAccessMode.Write)
+                let matchingParameter = matchingKernel.Value.Parameters.[par]
+                let access = matchingParameter.Access
+                mustReadBuffer <-                     
+                    ((matchingParameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace)) &&
+                    ((access = KernelParameterAccessMode.WriteOnly) || 
+                     (access = KernelParameterAccessMode.ReadWrite))
 
                 // Create buffer and eventually init it
                 let t = par.ParameterType.GetElementType()

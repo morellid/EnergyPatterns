@@ -26,9 +26,7 @@ and KernelDiscoveryStage() =
             raise (new KernelTransformationException("The engine is not able to discover a kernel inside the expression [" + expr.ToString() + "]"))
         output.Value
 
-    override this.Run(expr, state) =
-        this.SetTransformationGlobalState(state)
-        let kernel = this.Process(expr)
-        (kernel, this.TransformationDataCopy)
-
+    override this.Run(expr) =
+        this.Process(expr)
+        
 

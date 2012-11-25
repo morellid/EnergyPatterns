@@ -44,7 +44,6 @@
     <Compile Include="FSCL.fs" />
     <None Include="Script.fsx" />
     <Compile Include="FSCLException.fs" />
-    <Compile Include="FSCLKernelAttribute.fs" />
     <Compile Include="FSCLUtil.fs" />
     <Compile Include="KernelBinding.fs" />
     <Compile Include="FSCLPatterns.fs" />

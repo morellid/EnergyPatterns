@@ -43,10 +43,8 @@ and KernelSignatureTransformationStage() =
             raise (new KernelTransformationException("The engine found a parameter that cannot be handled [" + p.Name + "]"))
         output.Value
 
-    override this.Run(methodInfo:MethodInfo, state) =
-        this.SetTransformationGlobalState(state)
-        let result = this.Process(methodInfo)
-        (result, this.TransformationDataCopy)
+    override this.Run(methodInfo:MethodInfo) =
+        this.Process(methodInfo)
                
 
 
