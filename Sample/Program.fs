@@ -37,6 +37,32 @@ let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[
             sum <- filter.[r,c] * block.[local_y + r, local_x + c]
     output.[yOut,xOut] <- sum
 
+    
+__kernel void reduce_gpu_int_1(__global int *g_idata, __local int* sdata, unsigned int n, __global int *g_odata)
+{
+    // perform first level of reduction,
+    // reading from global memory, writing to shared memory
+    unsigned int tid = get_local_id(0);
+    unsigned int i = get_group_id(0)*(get_local_size(0)*2) + get_local_id(0);
+
+    sdata[tid] = (i < n) ? g_idata[i] : 0;
+    if (i + get_local_size(0) < n) 
+        sdata[tid] += g_idata[i+get_local_size(0)];  
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // do reduction in shared mem
+    for(unsigned int s=(get_local_size(0) >> 1); s>0; s>>=1) 
+    {
+        if (tid < s) 
+            sdata[tid] += sdata[tid + s];
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    // write result for this block to global mem 
+    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];
+}
+
 [<Kernel>]
 [<ReflectedDefinition>]
 let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
