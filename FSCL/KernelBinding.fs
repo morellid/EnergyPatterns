@@ -264,6 +264,9 @@ type KernelBinding() =
         body.TypeProcessors.Add(new ArrayTypeProcessor())
 
         body.UnionCaseProcessors.Add(new DefaultUnionCaseProcessor())
+
+        body.PropertyGetProcessors.Add(new MacroProcessor())
+
         body.GenericProcessors.Add(new ConditionalAssignmentProcessor())
 
         // Run pipeline

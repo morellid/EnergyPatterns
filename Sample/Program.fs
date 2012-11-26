@@ -9,8 +9,14 @@ open Cloo
 open Microsoft.FSharp.Collections
 open fscl
 
+// Example of macro
 [<ReflectedDefinition>]
-let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[,], [<Local>]block:float32[,], filterWidth:int) =
+let filterWidth = 3
+[<ReflectedDefinition>]
+let n = 3
+
+[<ReflectedDefinition>]
+let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[,], [<Local>]block:float32[,]) =
     let output_width = get_global_size(0)
     let input_width = output_width + filterWidth - 1
     let xOut = get_global_id(0)
@@ -40,7 +46,7 @@ let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[
 
 [<Kernel>]
 [<ReflectedDefinition>]
-let Reduce(g_idata:int[], [<Local>]sdata:int[], n, g_odata:int[]) =
+let Reduce(g_idata:int[], [<Local>]sdata:int[], g_odata:int[]) =
     // perform first level of reduction,
     // reading from global memory, writing to shared memory
     let tid = get_local_id(0)
@@ -85,7 +91,7 @@ let main argv =
     
     // Test conversion with new pipeline
     //let oldel1 = FSCL.KernelBinding.Compile(<@ MatrixMult @>)
-    //let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
+    let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
     
     let runner = new KernelRunner()
     // Dump instruction energy profiling
@@ -134,7 +140,7 @@ let main argv =
     let redA = Array.create 1024 10
     let temp = Array.zeroCreate<int> 128 
     let redC = Array.zeroCreate<int> 1
-    runner.Run(<@ Reduce(redA, temp, 1024, redC) @>, 
+    runner.Run(<@ Reduce(redA, temp, redC) @>, 
                [| (1024L, 128L) |])
 
     // Test matrix multiplication

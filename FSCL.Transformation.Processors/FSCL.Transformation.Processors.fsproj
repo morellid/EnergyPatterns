@@ -61,11 +61,17 @@
     <Compile Include="KernelSignatureProcessor.fs" />
     <Compile Include="UnionCaseProcessor.fs" />
     <Compile Include="ConditionalAssignmentProcessor.fs" />
+    <Compile Include="MacroProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FSCL.Transformation\FSCL.Transformation.fsproj">
       <Name>FSCL.Transformation</Name>
       <Project>{0860f2a4-632c-40bf-88f8-35ad2c3cc737}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\QuotationEvaluation\QuotationEvaluation.fsproj">
+      <Name>QuotationEvaluation</Name>
+      <Project>{4e34127e-86c3-48b8-9e7e-7d7c72dbc856}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

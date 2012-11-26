@@ -56,6 +56,9 @@ and ValueProcessor =
 and UnionCaseProcessor =
     inherit TransformationStageProcessor<Expr, Reflection.UnionCaseInfo, Expr list>
 
+and PropertyGetProcessor =
+    inherit TransformationStageProcessor<Expr, Expr option, Reflection.PropertyInfo, Expr list>
+
 and KernelBodyTransformationStage() = 
     inherit TransformationStage<(Expr * String), String>()
 
@@ -70,6 +73,7 @@ and KernelBodyTransformationStage() =
     member val VarProcessors = new List<VarProcessor>() with get
     member val ValueProcessors = new List<ValueProcessor>() with get
     member val UnionCaseProcessors = new List<UnionCaseProcessor>() with get
+    member val PropertyGetProcessors = new List<PropertyGetProcessor>() with get
     member val GenericProcessors = new List<GenericProcessor>() with get
         
     member this.Process(v:Var) =
@@ -130,6 +134,18 @@ and KernelBodyTransformationStage() =
                 this.Process(v)
             | Patterns.Value(o, t) ->
                 this.Process(o, t)
+            | Patterns.PropertyGet (e, pi, a) ->
+                let mutable index = 0
+                let mutable output = None
+                while (output.IsNone) && (index < this.PropertyGetProcessors.Count) do
+                    match this.PropertyGetProcessors.[index].Handle(expression, e, pi, a, this) with
+                    | (true, s) ->
+                        output <- s
+                    | (false, _) ->
+                        index <- index + 1
+                if output.IsNone then
+                    raise (new KernelTransformationException("The engine found an property get that cannot be handled [" + pi.Name + "]"))     
+                output.Value           
             | Patterns.NewUnionCase(uc, a) ->
                 let mutable index = 0
                 let mutable output = None
