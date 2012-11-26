@@ -59,6 +59,8 @@
     <Compile Include="ParameterProcessor.fs" />
     <Compile Include="KernelByNameDiscoveryProcessor.fs" />
     <Compile Include="KernelSignatureProcessor.fs" />
+    <Compile Include="UnionCaseProcessor.fs" />
+    <Compile Include="ConditionalAssignmentProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FSCL.Transformation\FSCL.Transformation.fsproj">

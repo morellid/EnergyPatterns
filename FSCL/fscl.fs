@@ -3,6 +3,12 @@
 open Cloo
 
 module fscl =
+    type MemFenceMode =
+    | CLK_LOCAL_MEM_FENCE
+    | CLK_GLOBAL_MEM_FENCE    
+
+    let barrier(fenceMode:MemFenceMode) =
+        ()
     let get_global_id(dim:int) = 
         0
     let get_local_id(dim:int) =

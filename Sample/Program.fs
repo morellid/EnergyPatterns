@@ -7,18 +7,19 @@ open TransferEnergy
 open MetricBase
 open Cloo
 open Microsoft.FSharp.Collections
+open fscl
 
 [<ReflectedDefinition>]
 let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[,], [<Local>]block:float32[,], filterWidth:int) =
-    let output_width = fscl.get_global_size(0)
+    let output_width = get_global_size(0)
     let input_width = output_width + filterWidth - 1
-    let xOut = fscl.get_global_id(0)
-    let yOut = fscl.get_global_id(1)
+    let xOut = get_global_id(0)
+    let yOut = get_global_id(1)
 
-    let local_x = fscl.get_local_id(0)
-    let local_y = fscl.get_local_id(1)
-    let group_width = fscl.get_local_size(0)
-    let group_height = fscl.get_local_size(1)
+    let local_x = get_local_id(0)
+    let local_y = get_local_id(1)
+    let group_width = get_local_size(0)
+    let group_height = get_local_size(1)
     let block_width = group_width + filterWidth - 1
     let block_height = group_height + filterWidth - 1
 
@@ -37,37 +38,36 @@ let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[
             sum <- filter.[r,c] * block.[local_y + r, local_x + c]
     output.[yOut,xOut] <- sum
 
-    
-__kernel void reduce_gpu_int_1(__global int *g_idata, __local int* sdata, unsigned int n, __global int *g_odata)
-{
+[<Kernel>]
+[<ReflectedDefinition>]
+let Reduce(g_idata:int[], [<Local>]sdata:int[], n, g_odata:int[]) =
     // perform first level of reduction,
     // reading from global memory, writing to shared memory
-    unsigned int tid = get_local_id(0);
-    unsigned int i = get_group_id(0)*(get_local_size(0)*2) + get_local_id(0);
+    let tid = get_local_id(0)
+    let i = get_group_id(0) * (get_local_size(0) * 2) + get_local_id(0)
 
-    sdata[tid] = (i < n) ? g_idata[i] : 0;
-    if (i + get_local_size(0) < n) 
-        sdata[tid] += g_idata[i+get_local_size(0)];  
+    sdata.[tid] <- if(i < n) then g_idata.[i] else 0
+    if (i + get_local_size(0) < n) then 
+        sdata.[tid] <- sdata.[tid] + g_idata.[i + get_local_size(0)]
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    barrier(CLK_LOCAL_MEM_FENCE)
 
     // do reduction in shared mem
-    for(unsigned int s=(get_local_size(0) >> 1); s>0; s>>=1) 
-    {
-        if (tid < s) 
-            sdata[tid] += sdata[tid + s];
-        barrier(CLK_LOCAL_MEM_FENCE);
-    }
+    let mutable s = get_local_size(0) >>> 1
+    while (s > 0) do 
+        if (tid < s) then
+            sdata.[tid] <- sdata.[tid] + sdata.[tid + s]
+        barrier(CLK_LOCAL_MEM_FENCE)
+        s <- s >>> 1
 
-    // write result for this block to global mem 
-    if (tid == 0) g_odata[get_group_id(0)] = sdata[0];
-}
-
+    if (tid = 0) then 
+        g_odata.[get_group_id(0)] <- sdata.[0]
+        
 [<Kernel>]
 [<ReflectedDefinition>]
 let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
-    let x = fscl.get_global_id(0)
-    let y = fscl.get_global_id(1)
+    let x = get_global_id(0)
+    let y = get_global_id(1)
 
     let mutable accum = 0.0f
     for k = 0 to a.GetLength(1) - 1 do
@@ -77,16 +77,17 @@ let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
 [<Kernel>]
 [<ReflectedDefinition>]
 let VectorAdd(a: float32[], b: float32[], c: float32[]) =
-    let gid = fscl.get_global_id(0)
+    let gid = get_global_id(0)
     c.[gid] <- (a.[gid] + b.[gid])
 
 [<EntryPoint>]
 let main argv =
-    let runner = new KernelRunner()
-
+    
     // Test conversion with new pipeline
-    //let oldel = FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)
-
+    //let oldel1 = FSCL.KernelBinding.Compile(<@ MatrixMult @>)
+    //let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
+    
+    let runner = new KernelRunner()
     // Dump instruction energy profiling
     (*
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
@@ -128,6 +129,13 @@ let main argv =
     let c = Array.zeroCreate<float32> 10
     runner.Run(<@ VectorAdd(a, b, c) @>, 
                [| (10L, 10L) |])
+               
+    // Test vector reduction
+    let redA = Array.create 1024 10
+    let temp = Array.zeroCreate<int> 128 
+    let redC = Array.zeroCreate<int> 1
+    runner.Run(<@ Reduce(redA, temp, 1024, redC) @>, 
+               [| (1024L, 128L) |])
 
     // Test matrix multiplication
     let matA = Array2D.create 64 64 2.0f 

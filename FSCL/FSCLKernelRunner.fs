@@ -195,40 +195,45 @@ type KernelRunner() =
         Array.iteri (fun index (par:ParameterInfo, dim:int, arg:Expr) ->
             if par.ParameterType.IsArray then
                 let o = arg.EvalUntyped()
+                // Check if constant buffer. In this case we pass the dimension (sizeof) the array and not a real buffer
+                if matchingKernel.Value.Parameters.[par].AddressSpace = KernelParameterAddressSpace.ConstantSpace then
+                    let size = (o.GetType().GetProperty("LongLength").GetValue(o) :?> int64) * 
+                               (int64 (System.Runtime.InteropServices.Marshal.SizeOf(o.GetType().GetElementType())))
+                    // Set kernel arg
+                    kernelInstance.Kernel.SetLocalArgument(index, size) 
+                else
+                    // Check if read or read_write mode
+                    let matchingParameter = matchingKernel.Value.Parameters.[par]
+                    let access = matchingParameter.Access
+                    let mustInitBuffer =
+                        ((matchingParameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace) ||
+                         (matchingParameter.AddressSpace = KernelParameterAddressSpace.ConstantSpace)) &&
+                        ((access = KernelParameterAccessMode.ReadOnly) || 
+                         (access = KernelParameterAccessMode.ReadWrite))
 
-                // Check if read or read_write mode
-                let mutable mustInitBuffer = false
-                let matchingParameter = matchingKernel.Value.Parameters.[par]
-                let access = matchingParameter.Access
-                mustInitBuffer <- 
-                    ((matchingParameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace) ||
-                     (matchingParameter.AddressSpace = KernelParameterAddressSpace.ConstantSpace)) &&
-                    ((access = KernelParameterAccessMode.ReadOnly) || 
-                     (access = KernelParameterAccessMode.ReadWrite))
-
-                // Create buffer and eventually init it
-                let t = par.ParameterType.GetElementType()
-                let mutable buffer = None
-                if (t = typeof<uint32>) then
-                    buffer <- Some(this.WriteBuffer<uint32>(context, queue, o, dim, mustInitBuffer))
-                elif (t = typeof<uint64>) then
-                    buffer <- Some(this.WriteBuffer<uint64>(context, queue, o, dim ,mustInitBuffer))
-                elif (t = typeof<int64>) then
-                    buffer <- Some(this.WriteBuffer<int64>(context, queue, o, dim, mustInitBuffer))
-                elif (t = typeof<int>) then
-                    buffer <- Some(this.WriteBuffer<int>(context, queue, o, dim, mustInitBuffer))
-                elif (t = typeof<double>) then
-                    buffer <- Some(this.WriteBuffer<double>(context, queue, o, dim, mustInitBuffer))
-                elif (t = typeof<float32>) then
-                    buffer <- Some(this.WriteBuffer<float32>(context, queue, o, dim, mustInitBuffer))
-                elif (t = typeof<bool>) then
-                    buffer <- Some(this.WriteBuffer<int>(context, queue, o, dim, mustInitBuffer))
+                    // Create buffer and eventually init it
+                    let t = par.ParameterType.GetElementType()
+                    let mutable buffer = None
+                    if (t = typeof<uint32>) then
+                        buffer <- Some(this.WriteBuffer<uint32>(context, queue, o, dim, mustInitBuffer))
+                    elif (t = typeof<uint64>) then
+                        buffer <- Some(this.WriteBuffer<uint64>(context, queue, o, dim ,mustInitBuffer))
+                    elif (t = typeof<int64>) then
+                        buffer <- Some(this.WriteBuffer<int64>(context, queue, o, dim, mustInitBuffer))
+                    elif (t = typeof<int>) then
+                        buffer <- Some(this.WriteBuffer<int>(context, queue, o, dim, mustInitBuffer))
+                    elif (t = typeof<double>) then
+                        buffer <- Some(this.WriteBuffer<double>(context, queue, o, dim, mustInitBuffer))
+                    elif (t = typeof<float32>) then
+                        buffer <- Some(this.WriteBuffer<float32>(context, queue, o, dim, mustInitBuffer))
+                    elif (t = typeof<bool>) then
+                        buffer <- Some(this.WriteBuffer<int>(context, queue, o, dim, mustInitBuffer))
                  
-                // Stor association between parameter, array and buffer object
-                paramObjectBufferMap.Add(par.Name, (o, buffer.Value))
+                    // Stor association between parameter, array and buffer object
+                    paramObjectBufferMap.Add(par.Name, (o, buffer.Value))
 
-                // Set kernel arg
-                kernelInstance.Kernel.SetMemoryArgument(index, buffer.Value)  
+                    // Set kernel arg
+                    kernelInstance.Kernel.SetMemoryArgument(index, buffer.Value)  
 
                 // Set additional args for array params (dimensions) 
                 for dimension = 0 to dim - 1 do

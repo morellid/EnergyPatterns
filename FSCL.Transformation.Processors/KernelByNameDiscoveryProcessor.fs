@@ -42,10 +42,9 @@ type KernelByNameDiscoveryProcessor() =
             match i with
             | DerivedPatterns.MethodWithReflectedDefinition(b) ->
                 let kernelAttribute = i.GetCustomAttribute<FSCL.KernelAttribute>()  
-                if kernelAttribute.Device >= 0 && kernelAttribute.Platform >= 0 then
-                    let stage = (k :> FSCL.Transformation.TransformationStage<Expr, MethodInfo>)      
-                    stage.AddTransformationData("KERNEL_PLATFORM", kernelAttribute.Platform.ToString())   
-                    stage.AddTransformationData("KERNEL_DEVICE", kernelAttribute.Device.ToString())        
+                if kernelAttribute.Device >= 0 && kernelAttribute.Platform >= 0 then                       
+                    k.AddTransformationData("KERNEL_PLATFORM", kernelAttribute.Platform.ToString())   
+                    k.AddTransformationData("KERNEL_DEVICE", kernelAttribute.Device.ToString())        
                 i
             | _ ->
                 raise (KernelTransformationException("A kernel definition must provide a function marked with ReflectedDefinition attribute"))

@@ -20,15 +20,18 @@ type DefaultSignatureProcessor() =
         | _ ->
             expr
             
-    let GetSizeParameters(var, engine:KernelSignatureTransformationStage) =   
-        let data = engine.TransformationData("KERNEL_PARAMETER_TABLE").Value :?> KernelParameterTable
-        let mutable sizeParameters = []
-        for k in data do
-            if k.Key = var then
-                sizeParameters <- k.Value.SizeParameters
-        if sizeParameters.IsEmpty then
-            raise (KernelTransformationException("Cannot determine the size variables of array " + var.Name + ". This means no parameter processor produced the additional size parameters"))
-        sizeParameters
+    let GetSizeParameters(var:ParameterInfo, engine:KernelSignatureTransformationStage) =   
+        if not (var.ParameterType.IsArray) then
+            []
+        else
+            let data = engine.TransformationData("KERNEL_PARAMETER_TABLE").Value :?> KernelParameterTable
+            let mutable sizeParameters = []
+            for k in data do
+                if k.Key = var then
+                    sizeParameters <- k.Value.SizeParameters
+            if sizeParameters.IsEmpty then
+                raise (KernelTransformationException("Cannot determine the size variables of array " + var.Name + ". This means no parameter processor produced the additional size parameters"))
+            sizeParameters
             
     interface SignatureProcessor with
         member this.Handle(kernel, engine:KernelSignatureTransformationStage) =

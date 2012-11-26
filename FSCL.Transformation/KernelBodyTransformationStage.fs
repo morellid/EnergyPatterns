@@ -5,38 +5,56 @@ open System.Reflection
 open System.Collections.Generic
 open Microsoft.FSharp.Quotations
 
-type TypeProcessor =
-    abstract member Handle : Type * KernelBodyTransformationStage -> bool * String option
+type TransformationStageProcessor<'T> =
+    abstract member Handle : 'T * KernelBodyTransformationStage -> bool * String option
     
+and TransformationStageProcessor<'T, 'U> =
+    abstract member Handle : 'T * 'U * KernelBodyTransformationStage -> bool * String option
+    
+and TransformationStageProcessor<'T, 'U, 'W> =
+    abstract member Handle : 'T * 'U * 'W * KernelBodyTransformationStage -> bool * String option
+    
+and TransformationStageProcessor<'T, 'U, 'W, 'K> =
+    abstract member Handle : 'T * 'U * 'W * 'K * KernelBodyTransformationStage -> bool * String option
+    
+and TransformationStageProcessor<'T, 'U, 'W, 'K, 'L > =
+    abstract member Handle : 'T * 'U * 'W * 'K * 'L * KernelBodyTransformationStage -> bool * String option
+
 and GenericProcessor =
-    abstract member Handle : Expr * KernelBodyTransformationStage -> bool * String option
+    inherit TransformationStageProcessor<Expr>
+    
+and TypeProcessor =
+    inherit TransformationStageProcessor<Type>
 
 and SequentialProcessor =
-    abstract member Handle : (Expr) * Expr * Expr * KernelBodyTransformationStage -> bool * String option
+    inherit TransformationStageProcessor<Expr, Expr, Expr>
 
 and IfThenElseProcessor =
-    abstract member Handle : (Expr) * Expr * Expr * Expr * KernelBodyTransformationStage -> bool * String option
+    inherit TransformationStageProcessor<Expr, Expr, Expr, Expr>
 
 and IntegerRangeLoopProcessor =
-    abstract member Handle : (Expr) * Var * Expr * Expr * Expr * KernelBodyTransformationStage -> bool * String option
+    inherit TransformationStageProcessor<Expr, Var, Expr, Expr, Expr>
     
 and WhileLoopProcessor =
-    abstract member Handle : (Expr) * Expr * Expr * KernelBodyTransformationStage -> bool * String option
+    inherit TransformationStageProcessor<Expr, Expr, Expr>
     
 and CallProcessor =
-    abstract member Handle : (Expr) * Expr option * System.Reflection.MethodInfo * Expr list * KernelBodyTransformationStage -> bool * String option
+    inherit TransformationStageProcessor<Expr, Expr option, MethodInfo, Expr list>
 
 and LetProcessor =
-    abstract member Handle : (Expr) * Var * Expr * Expr * KernelBodyTransformationStage -> bool * String option
+    inherit TransformationStageProcessor<Expr, Var, Expr, Expr>
     
 and VarSetProcessor =
-    abstract member Handle : (Expr) * Var * Expr * KernelBodyTransformationStage -> bool * String option
+    inherit TransformationStageProcessor<Expr, Var, Expr>
 
 and VarProcessor =
-    abstract member Handle : Var * KernelBodyTransformationStage -> bool * String option
+    inherit TransformationStageProcessor<Var>
 
 and ValueProcessor =
-    abstract member Handle : Object * Type * KernelBodyTransformationStage -> bool * String option
+    inherit TransformationStageProcessor<Object, Type>
+
+and UnionCaseProcessor =
+    inherit TransformationStageProcessor<Expr, Reflection.UnionCaseInfo, Expr list>
 
 and KernelBodyTransformationStage() = 
     inherit TransformationStage<(Expr * String), String>()
@@ -51,6 +69,7 @@ and KernelBodyTransformationStage() =
     member val VarSetProcessors = new List<VarSetProcessor>() with get
     member val VarProcessors = new List<VarProcessor>() with get
     member val ValueProcessors = new List<ValueProcessor>() with get
+    member val UnionCaseProcessors = new List<UnionCaseProcessor>() with get
     member val GenericProcessors = new List<GenericProcessor>() with get
         
     member this.Process(v:Var) =
@@ -111,7 +130,18 @@ and KernelBodyTransformationStage() =
                 this.Process(v)
             | Patterns.Value(o, t) ->
                 this.Process(o, t)
-
+            | Patterns.NewUnionCase(uc, a) ->
+                let mutable index = 0
+                let mutable output = None
+                while (output.IsNone) && (index < this.UnionCaseProcessors.Count) do
+                    match this.UnionCaseProcessors.[index].Handle(expression, uc, a, this) with
+                    | (true, s) ->
+                        output <- s
+                    | (false, _) ->
+                        index <- index + 1
+                if output.IsNone then
+                    raise (new KernelTransformationException("The engine found an union case construct that cannot be handled [" + uc.Name + "]"))
+                output.Value
             | Patterns.Call(e, i, args) ->
                 let mutable index = 0
                 let mutable output = None

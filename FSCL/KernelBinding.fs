@@ -263,6 +263,9 @@ type KernelBinding() =
         body.TypeProcessors.Add(new PlainTypeProcessor())
         body.TypeProcessors.Add(new ArrayTypeProcessor())
 
+        body.UnionCaseProcessors.Add(new DefaultUnionCaseProcessor())
+        body.GenericProcessors.Add(new ConditionalAssignmentProcessor())
+
         // Run pipeline
         ((discovery --> signature) + signature) --> body
 
