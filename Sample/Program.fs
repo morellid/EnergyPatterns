@@ -8,6 +8,7 @@ open MetricBase
 open Cloo
 open Microsoft.FSharp.Collections
 open fscl
+open EnergyPatterns.RemoteAmmeter
 
 // Example of macro
 [<ReflectedDefinition>]
@@ -99,7 +100,7 @@ let main argv =
     let convOutput = Array2D.create 10 10 2.0f
     let convBlock = Array2D.zeroCreate<float32> 8 8
     let instantiation = instructionMetric.Instantiate([], evaluation, <@ Convolution(convInput, convFilter, convOutput, convBlock) @>, ([| 10; 10 |], [| 5; 5 |]))
-    *)
+    
     // Dump instruction energy profiling
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
     instructionMetric.DumpFolder <- Some("Dump")
@@ -125,15 +126,41 @@ let main argv =
     transferMetric.DstInfo.IsHostPtr <- false
     for device in ComputePlatform.Platforms.[0].Devices do
         transferMetric.Profile(device) |> ignore
-        
+        *)
     let runner = new KernelRunner()
     // Test vector addition
-    let a = Array.create 10 10.0f
-    let b = Array.create 10 10.0f
-    let c = Array.zeroCreate<float32> 10
-    runner.Run(<@ VectorAdd(a, b, c) @>, 
-               [| 10 |], [| 10 |])
-               
+    
+    let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
+    instructionMetric.DumpFolder <- Some("Dump")
+    instructionMetric.MinInstr <- 1
+    instructionMetric.MaxInstr <- 10000
+    instructionMetric.Step <- 1000
+    instructionMetric.PerStepDuration <- 15000
+    instructionMetric.ThreadCount <- 2048L
+    
+    let matA = Array2D.create 64 32 2.0f 
+    let matB = Array2D.create 32 64 2.0f
+    let matC = Array2D.zeroCreate<float32> 64 64
+    let energyClient = new Client("131.114.88.115")
+    let iterations = 1000
+    let ev = instructionMetric.Evaluate([], <@ MatrixMult @>)
+    let instr = instructionMetric.Instantiate([], ev, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
+    
+    let timer = System.Diagnostics.Stopwatch()
+    let startMsg = energyClient.start()
+    timer.Start()
+    for i in 0 .. iterations - 1 do
+        runner.Run(<@ MatrixMult(matA, matB, matC) @>, 
+                   [| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |])
+    timer.Stop()
+    let endMsg = energyClient.stop()
+    let avgen = System.Double.TryParse(endMsg.Replace(",", "."))
+
+    let fileName = "MatrixMult_Real.csv"  
+    let content = ref "Instructions,AvgEnergy,Duration,Iterations;\n"
+    content := !content + instr.ToString() + "," + avgen.ToString() + "," + timer.ElapsedMilliseconds.ToString() + "," + iterations.ToString() + ";\n"
+    System.IO.File.WriteAllText(fileName, !content)
+               (*
     // Test vector reduction
     let redA = Array.create 1024 10
     let redB = Array.zeroCreate<int> 128
@@ -146,7 +173,7 @@ let main argv =
     let matC = Array2D.zeroCreate<float32> 64 64
     runner.Run(<@ MatrixMult(matA, matB, matC) @>, 
                [| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |])
-    
+    *)
     // Test prettyPrinting
     //let (str, a) = (FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)).Value
     //printf "%s" str
