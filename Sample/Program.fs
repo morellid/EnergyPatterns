@@ -98,7 +98,7 @@ let main argv =
     let convFilter = Array2D.create 3 3 1.0f
     let convOutput = Array2D.create 10 10 2.0f
     let convBlock = Array2D.zeroCreate<float32> 8 8
-    let instantiation = instructionMetric.Instantiate([], evaluation, <@ Convolution(convInput, convFilter, convOutput, convBlock) @>, ([| 1024; 1024 |], [| 128; 128 |]))
+    let instantiation = instructionMetric.Instantiate([], evaluation, <@ Convolution(convInput, convFilter, convOutput, convBlock) @>, ([| 10; 10 |], [| 5; 5 |]))
     let runner = new KernelRunner()
     // Dump instruction energy profiling
     (*
@@ -143,6 +143,10 @@ let main argv =
                [| 10 |], [| 10 |])
                
     // Test vector reduction
+    let redA = Array.create 1024 10
+    let redB = Array.zeroCreate<int> 128
+    let redC = Array.zeroCreate<int> 1024
+    runner.Run(<@ Reduce(redA, redB, 1024, redC) @>, [| 1024 |], [| 128 |])
 
     // Test matrix multiplication
     let matA = Array2D.create 64 64 2.0f 
