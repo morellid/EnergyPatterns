@@ -50,6 +50,7 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Stack.fs" />
     <Compile Include="ExpressionAnalyzer.fs" />
     <Compile Include="InstructionCountEstimator.fs" />
     <Compile Include="KernelBuilder.fs" />

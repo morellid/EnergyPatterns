@@ -21,7 +21,7 @@ type ArithmeticOperationProcessor() =
             | DerivedPatterns.SpecificCall <@ (<=) @> (e, t, a)  -> 
                 (true, Some(HandleBinaryOp(" <= ", a, engine)))
             | DerivedPatterns.SpecificCall <@ (=) @> (e, t, a) -> 
-                (true, Some(HandleBinaryOp(" == ", a, engine)))
+                (true, Some(HandleBinaryOp(" = ", a, engine)))
             | DerivedPatterns.SpecificCall <@ (<>) @> (e, t, a) -> 
                 (true, Some(HandleBinaryOp(" != ", a, engine)))
             | DerivedPatterns.SpecificCall <@ (+) @> (e, t, a) -> 

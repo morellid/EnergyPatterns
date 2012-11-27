@@ -4,11 +4,10 @@ open Microsoft.FSharp.Quotations
 [<ReflectedDefinition>]
 let add = 
     <@@ 
-        fun x y ->
-            let mutable b = 0
-            b <- 1
-            b <- 2
-            b
+        let mutable x = 0
+        for i in 0..2..10 do
+            x <- i
+        x
     @@>
 
 let rec analyse expr =

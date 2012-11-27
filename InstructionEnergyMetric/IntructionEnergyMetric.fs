@@ -14,9 +14,11 @@ open Microsoft.FSharp.Linq.QuotationEvaluation
 type EnergyProfilingResult = (int * double * double * int64) list
 type EnergyInstantiationResult = double
 type EnergyEvaluationResult = Expr
+// Local and global sizes
+type EnergyCustomData = int array * int array
 
 type InstructionEnergyMetric(ammeterIp) =
-    inherit AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyEvaluationResult, EnergyInstantiationResult>()
+    inherit AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyEvaluationResult, EnergyInstantiationResult, EnergyCustomData>()
 
     let mutable min_instr = 1
     let mutable max_instr = 1
@@ -142,22 +144,38 @@ type InstructionEnergyMetric(ammeterIp) =
         else
             raise (MetricBase.Exceptions.MetricEvaluationError("Cannot evaluate instruction count\n"))
                 
-    override this.Instantiate(profiling, evaluation:Expr, invocation) =
+    override this.Instantiate(profiling, evaluation, invocation, (globalSize, localSize)) =
         // Evaluation is something like "<compute instruction>"
         // To compute instructions we bind the variables that are free in <compute instruction>
         let (methodInfo, args) = MetricBase.Tools.KernelTools.ExtractKernelInvocation(invocation)
         let parameters = methodInfo.GetParameters()
-        let freeVars = Seq.toList (evaluation.GetFreeVars())
+        let mutable freeVars = evaluation.GetFreeVars()
 
-        let findByName name vl =
-            List.tryFind (fun (v: Var) -> v.Name = name) vl
-
-        let mutable finalExpr =  evaluation
-        for i = 0 to args.Length - 1 do
-            let freeVar = findByName (parameters.[i].Name) freeVars
-            if freeVar.IsSome then
-                finalExpr <- Expr.Let(freeVar.Value, args.[i], finalExpr)
-                                           
+        // Assign values to parameter references
+        let mutable finalExpr = evaluation
+        for var in freeVars do
+            let pIndex = Array.tryFindIndex (fun (p:Reflection.ParameterInfo) -> p.Name = var.Name) parameters
+            if pIndex.IsSome then
+                finalExpr <- Expr.Let(var, args.[pIndex.Value], finalExpr)
+                // Remove var free ones                
+                freeVars <- Seq.skip 1 freeVars
+                                      
+        // Assign values to fscl call placeholders
+        let groups = Array.mapi (fun i el ->  el / localSize.[i]) globalSize
+        for var in freeVars do
+            if var.Name.StartsWith "get_global_id" then
+                finalExpr <- Expr.Let(var, <@ Array.zeroCreate<int> 3 @>, finalExpr)
+            if var.Name.StartsWith "get_local_id" then
+                finalExpr <- Expr.Let(var, <@ Array.zeroCreate<int> 3 @>, finalExpr)
+            if var.Name.StartsWith "get_global_size" then
+                finalExpr <- Expr.Let(var, <@ globalSize @>, finalExpr)
+            if var.Name.StartsWith "get_local_size" then
+                finalExpr <- Expr.Let(var, <@ localSize @>, finalExpr)
+            if var.Name.StartsWith "get_num_groups" then 
+                finalExpr <- Expr.Let(var, <@ groups @>, finalExpr)
+            if var.Name.StartsWith "get_work_dim" then 
+                finalExpr <- Expr.Let(var, <@ groups.Rank @>, finalExpr)           
+                
         let result = finalExpr.EvalUntyped()
         
         // Dump on file if enable

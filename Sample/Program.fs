@@ -12,8 +12,6 @@ open fscl
 // Example of macro
 [<ReflectedDefinition>]
 let filterWidth = 3
-[<ReflectedDefinition>]
-let n = 3
 
 [<ReflectedDefinition>]
 let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[,], [<Local>]block:float32[,]) =
@@ -46,7 +44,7 @@ let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[
 
 [<Kernel>]
 [<ReflectedDefinition>]
-let Reduce(g_idata:int[], [<Local>]sdata:int[], g_odata:int[]) =
+let Reduce(g_idata:int[], [<Local>]sdata:int[], n, g_odata:int[]) =
     // perform first level of reduction,
     // reading from global memory, writing to shared memory
     let tid = get_local_id(0)
@@ -91,8 +89,16 @@ let main argv =
     
     // Test conversion with new pipeline
     //let oldel1 = FSCL.KernelBinding.Compile(<@ MatrixMult @>)
-    let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
+    //let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
     
+    // Test InstructionMetric evaluation
+    let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
+    let evaluation = instructionMetric.Evaluate([], <@ Convolution @>)
+    let convInput = Array2D.create 10 10 2.0f
+    let convFilter = Array2D.create 3 3 1.0f
+    let convOutput = Array2D.create 10 10 2.0f
+    let convBlock = Array2D.zeroCreate<float32> 8 8
+    let instantiation = instructionMetric.Instantiate([], evaluation, <@ Convolution(convInput, convFilter, convOutput, convBlock) @>, ([| 1024; 1024 |], [| 128; 128 |]))
     let runner = new KernelRunner()
     // Dump instruction energy profiling
     (*
@@ -134,21 +140,16 @@ let main argv =
     let b = Array.create 10 10.0f
     let c = Array.zeroCreate<float32> 10
     runner.Run(<@ VectorAdd(a, b, c) @>, 
-               [| (10L, 10L) |])
+               [| 10 |], [| 10 |])
                
     // Test vector reduction
-    let redA = Array.create 1024 10
-    let temp = Array.zeroCreate<int> 128 
-    let redC = Array.zeroCreate<int> 1
-    runner.Run(<@ Reduce(redA, temp, redC) @>, 
-               [| (1024L, 128L) |])
 
     // Test matrix multiplication
     let matA = Array2D.create 64 64 2.0f 
     let matB = Array2D.create 64 64 2.0f
     let matC = Array2D.zeroCreate<float32> 64 64
     runner.Run(<@ MatrixMult(matA, matB, matC) @>, 
-               [| (matA.GetLongLength(0), 8L); (matA.GetLongLength(1), 8L) |])
+               [| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |])
     
     // Test prettyPrinting
     //let (str, a) = (FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)).Value

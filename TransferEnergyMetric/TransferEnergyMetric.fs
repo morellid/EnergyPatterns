@@ -19,9 +19,10 @@ open System.IO
 type EnergyProfilingResult = (int * double) list
 type EnergyInstantiationResult = double
 type EnergyEvaluationResult = (ParameterInfo * Data.BufferAccess) []
+type EnergyCustomData = obj
 
 type TransferEnergyMetric(ammeterIp:string) =
-    inherit AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyEvaluationResult, EnergyInstantiationResult>()
+    inherit AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyEvaluationResult, EnergyInstantiationResult, EnergyCustomData>()
 
     let mutable min_size = 1
     let mutable max_size = 1
@@ -172,7 +173,7 @@ type TransferEnergyMetric(ammeterIp:string) =
         let parmsAccess = Tools.ParameterAccessAnalyzer.Analyze(kernel)
         parmsAccess
                 
-    override this.Instantiate(profiling, evaluation, invocation) =            
+    override this.Instantiate(profiling, evaluation, invocation, customData) =            
         let (methodInfo, args) = MetricBase.Tools.KernelTools.ExtractKernelInvocation(invocation)
         let parameters = methodInfo.GetParameters()
         let totalBytes = ref 0

@@ -173,7 +173,7 @@ type KernelRunner() =
             q.ReadFromBuffer<'T>(buffer, ref actualArg, true, offset, offset, region, null)
         
     // Run a kernel through a quoted kernel call
-    member this.Run(expr: Expr, size: (int64 * int64) array) =
+    member this.Run(expr: Expr, globalSize: int array, localSize: int array) =
              
         let (kernelInfo, args) = FSCL.Util.GetKernelFromCall (expr)
 
@@ -258,9 +258,9 @@ type KernelRunner() =
                     kernelInstance.Kernel.SetValueArgument<bool>(index, arg.EvalUntyped() :?> bool)) (args)
 
         // Run kernel
-        let globalSize, localSize = Array.unzip (size)
         let offset = Array.zeroCreate<int64>(globalSize.Length)
-        queue.Execute(kernelInstance.Kernel, offset, globalSize, localSize, null)
+        // 32 bit enought for size_t. Kernel uses size_t like int withour cast. We cannot put case into F# kernels each time the user does operations with get_global_id and similar!
+        queue.Execute(kernelInstance.Kernel, offset, Array.map(fun el -> int64(el)) globalSize, Array.map(fun el -> int64(el)) localSize, null)
 
         // Read result if needed
         Array.iteri (fun index (par:ParameterInfo, dim:int, arg:Expr) ->
