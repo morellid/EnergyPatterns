@@ -9,6 +9,9 @@ type ImplicitCallProcessor() =
             if methodInfo.DeclaringType.Name = "fscl" then
                 // the function is defined in FSCL
                 let args = String.concat ", " (List.map (fun (e:Expr) -> engine.Process(e)) args)
-                (true, Some(methodInfo.Name + "(" + args + ")"))
+                if methodInfo.Name = "barrier" then
+                    (true, Some(methodInfo.Name + "(" + args + ");"))
+                else
+                    (true, Some(methodInfo.Name + "(" + args + ")"))
             else           
                 (false, None)

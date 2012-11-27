@@ -11,7 +11,7 @@ open System.IO
 // The below one needs PowerPack :(
 open Microsoft.FSharp.Linq.QuotationEvaluation
 
-type EnergyProfilingResult = (int * double * double * int64) list
+type EnergyProfilingResult = (int * double * double * int64 * int) list
 type EnergyInstantiationResult = double
 type EnergyEvaluationResult = Expr
 // Local and global sizes
@@ -76,7 +76,7 @@ type InstructionEnergyMetric(ammeterIp) =
 
         // For each instr count run the test
         for currInstr in instrCount do
-            let computeProgram = new ComputeProgram(computeContext, [| Tools.KernelBuilder.BuildKernel(currInstr) |])
+            let computeProgram = new ComputeProgram(computeContext, [| Tools.KernelBuilder.BuildLoopKernel() |])
             computeProgram.Build(devices, "", null, System.IntPtr.Zero)
             let computeKernel = computeProgram.CreateKernel("run")
             let computeQueue = new ComputeCommandQueue(computeContext, device, ComputeCommandQueueFlags.OutOfOrderExecution)
@@ -85,6 +85,8 @@ type InstructionEnergyMetric(ammeterIp) =
             computeKernel.SetMemoryArgument(0, inputBuffer)
             computeKernel.SetMemoryArgument(1, outputBuffer)
             computeQueue.WriteToBuffer([| 1.0 |], inputBuffer, true, null) 
+            // Only for loop kernel
+            computeKernel.SetValueArgument(2, currInstr / 2)
 
             // Run kernel n times to guarantee a total time >= PerStepDuration
             let timer = System.Diagnostics.Stopwatch()
@@ -118,7 +120,7 @@ type InstructionEnergyMetric(ammeterIp) =
             match avgEnergy with
             | (true, v) ->
                 let energyPerInstr = ((v / 1000.0) * (double)timer.ElapsedMilliseconds) / ((double)currInstr)
-                result <- result @ [ (currInstr, v, energyPerInstr, timer.ElapsedMilliseconds) ]
+                result <- result @ [ (currInstr, v, energyPerInstr, timer.ElapsedMilliseconds, iterations) ]
             | (false, _) ->
                 let t = 0
                 ()
@@ -129,9 +131,9 @@ type InstructionEnergyMetric(ammeterIp) =
                 Directory.CreateDirectory(dumpFile.Value) |> ignore
 
             let fileName = dumpFile.Value + "\\" + "Profiling-" + this.GetType().Name + "-" + device.Name.Replace(' ', '_') + ".csv"  
-            let content = ref "Instructions,AvgEnergy,EnergyPerInstruction,Duration;\n"
-            List.iter (fun (instr:int,avgen,en:float,time) ->
-                content := !content + instr.ToString() + "," + avgen.ToString() + "," + en.ToString() + "," + time.ToString() + ";\n") result
+            let content = ref "Instructions,AvgEnergy,EnergyPerInstruction,Duration,Iterations;\n"
+            List.iter (fun (instr:int,avgen,en:float,time,iterations) ->
+                content := !content + instr.ToString() + "," + avgen.ToString() + "," + en.ToString() + "," + time.ToString() + "," + iterations.ToString() + ";\n") result
             File.WriteAllText(fileName, !content)
         result
             

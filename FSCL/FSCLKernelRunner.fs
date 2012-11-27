@@ -192,15 +192,16 @@ type KernelRunner() =
         let additionalArgCount = ref 0     
         let paramObjectBufferMap = new System.Collections.Generic.Dictionary<string, (System.Object * ComputeMemory)>()
 
-        Array.iteri (fun index (par:ParameterInfo, dim:int, arg:Expr) ->
+        let argIndex = ref 0
+        Array.iter (fun (par:ParameterInfo, dim:int, arg:Expr) ->
             if par.ParameterType.IsArray then
                 let o = arg.EvalUntyped()
                 // Check if constant buffer. In this case we pass the dimension (sizeof) the array and not a real buffer
-                if matchingKernel.Value.Parameters.[par].AddressSpace = KernelParameterAddressSpace.ConstantSpace then
+                if matchingKernel.Value.Parameters.[par].AddressSpace = KernelParameterAddressSpace.LocalSpace then
                     let size = (o.GetType().GetProperty("LongLength").GetValue(o) :?> int64) * 
                                (int64 (System.Runtime.InteropServices.Marshal.SizeOf(o.GetType().GetElementType())))
                     // Set kernel arg
-                    kernelInstance.Kernel.SetLocalArgument(index, size) 
+                    kernelInstance.Kernel.SetLocalArgument(!argIndex, size) 
                 else
                     // Check if read or read_write mode
                     let matchingParameter = matchingKernel.Value.Parameters.[par]
@@ -233,7 +234,7 @@ type KernelRunner() =
                     paramObjectBufferMap.Add(par.Name, (o, buffer.Value))
 
                     // Set kernel arg
-                    kernelInstance.Kernel.SetMemoryArgument(index, buffer.Value)  
+                    kernelInstance.Kernel.SetMemoryArgument(!argIndex, buffer.Value)  
 
                 // Set additional args for array params (dimensions) 
                 for dimension = 0 to dim - 1 do
@@ -243,19 +244,21 @@ type KernelRunner() =
             else
                 let t = par.ParameterType
                 if (t = typeof<uint32>) then
-                    kernelInstance.Kernel.SetValueArgument<uint32>(index, arg.EvalUntyped() :?> uint32)
+                    kernelInstance.Kernel.SetValueArgument<uint32>(!argIndex, arg.EvalUntyped() :?> uint32)
                 elif (t = typeof<uint64>) then
-                    kernelInstance.Kernel.SetValueArgument<uint64>(index, arg.EvalUntyped() :?> uint64)
+                    kernelInstance.Kernel.SetValueArgument<uint64>(!argIndex, arg.EvalUntyped() :?> uint64)
                 elif (t = typeof<int64>) then
-                    kernelInstance.Kernel.SetValueArgument<int64>(index, arg.EvalUntyped() :?> int64)
+                    kernelInstance.Kernel.SetValueArgument<int64>(!argIndex, arg.EvalUntyped() :?> int64)
                 elif (t = typeof<int>) then
-                    kernelInstance.Kernel.SetValueArgument<int>(index, arg.EvalUntyped() :?> int)
+                    kernelInstance.Kernel.SetValueArgument<int>(!argIndex, arg.EvalUntyped() :?> int)
                 elif (t = typeof<double>) then
-                    kernelInstance.Kernel.SetValueArgument<double>(index, arg.EvalUntyped() :?> double)
+                    kernelInstance.Kernel.SetValueArgument<double>(!argIndex, arg.EvalUntyped() :?> double)
                 elif (t = typeof<float32>) then
-                    kernelInstance.Kernel.SetValueArgument<float32>(index, arg.EvalUntyped() :?> float32)
+                    kernelInstance.Kernel.SetValueArgument<float32>(!argIndex, arg.EvalUntyped() :?> float32)
                 elif (t = typeof<bool>) then
-                    kernelInstance.Kernel.SetValueArgument<bool>(index, arg.EvalUntyped() :?> bool)) (args)
+                    kernelInstance.Kernel.SetValueArgument<bool>(!argIndex, arg.EvalUntyped() :?> bool)
+            
+            argIndex := !argIndex + 1) (args)
 
         // Run kernel
         let offset = Array.zeroCreate<int64>(globalSize.Length)
@@ -265,34 +268,36 @@ type KernelRunner() =
         // Read result if needed
         Array.iteri (fun index (par:ParameterInfo, dim:int, arg:Expr) ->
             if par.ParameterType.IsArray then
-                // Get association between parameter, array and buffer object
-                let (o, buffer) = paramObjectBufferMap.[par.Name]
+                if matchingKernel.Value.Parameters.[par].AddressSpace <> KernelParameterAddressSpace.LocalSpace then
+                    // Get association between parameter, array and buffer object
+                    let (o, buffer) = paramObjectBufferMap.[par.Name]
 
-                // Check if write or read_write mode
-                let mutable mustReadBuffer = false
-                let matchingParameter = matchingKernel.Value.Parameters.[par]
-                let access = matchingParameter.Access
-                mustReadBuffer <-                     
-                    ((matchingParameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace)) &&
-                    ((access = KernelParameterAccessMode.WriteOnly) || 
-                     (access = KernelParameterAccessMode.ReadWrite))
+                    // Check if write or read_write mode
+                    let mutable mustReadBuffer = false
+                    let matchingParameter = matchingKernel.Value.Parameters.[par]
+                    let access = matchingParameter.Access
+                    mustReadBuffer <-                     
+                        ((matchingParameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace)) &&
+                        ((access = KernelParameterAccessMode.WriteOnly) || 
+                         (access = KernelParameterAccessMode.ReadWrite))
 
-                // Create buffer and eventually init it
-                let t = par.ParameterType.GetElementType()
-                if (t = typeof<uint32>) then
-                    this.ReadBuffer<uint32>(context, queue, o, dim, buffer :?> ComputeBuffer<uint32>) 
-                elif (t = typeof<uint64>) then
-                    this.ReadBuffer<uint64>(context, queue, o, dim, buffer :?> ComputeBuffer<uint64>) 
-                elif (t = typeof<int64>) then
-                    this.ReadBuffer<int64>(context, queue, o, dim, buffer :?> ComputeBuffer<int64>) 
-                elif (t = typeof<int>) then
-                    this.ReadBuffer<int>(context, queue, o, dim, buffer :?> ComputeBuffer<int>) 
-                elif (t = typeof<double>) then
-                    this.ReadBuffer<double>(context, queue, o, dim, buffer :?> ComputeBuffer<double>) 
-                elif (t = typeof<float32>) then
-                    this.ReadBuffer<float32>(context, queue, o, dim, buffer :?> ComputeBuffer<float32>) 
-                elif (t = typeof<bool>) then
-                    this.ReadBuffer<bool>(context, queue, o, dim, buffer :?> ComputeBuffer<bool>)) args 
+                    if(mustReadBuffer) then
+                        // Create buffer and eventually init it
+                        let t = par.ParameterType.GetElementType()
+                        if (t = typeof<uint32>) then
+                            this.ReadBuffer<uint32>(context, queue, o, dim, buffer :?> ComputeBuffer<uint32>) 
+                        elif (t = typeof<uint64>) then
+                            this.ReadBuffer<uint64>(context, queue, o, dim, buffer :?> ComputeBuffer<uint64>) 
+                        elif (t = typeof<int64>) then
+                            this.ReadBuffer<int64>(context, queue, o, dim, buffer :?> ComputeBuffer<int64>) 
+                        elif (t = typeof<int>) then
+                            this.ReadBuffer<int>(context, queue, o, dim, buffer :?> ComputeBuffer<int>) 
+                        elif (t = typeof<double>) then
+                            this.ReadBuffer<double>(context, queue, o, dim, buffer :?> ComputeBuffer<double>) 
+                        elif (t = typeof<float32>) then
+                            this.ReadBuffer<float32>(context, queue, o, dim, buffer :?> ComputeBuffer<float32>) 
+                        elif (t = typeof<bool>) then
+                            this.ReadBuffer<bool>(context, queue, o, dim, buffer :?> ComputeBuffer<bool>)) args 
                  
 
             

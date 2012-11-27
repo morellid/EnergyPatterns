@@ -92,21 +92,20 @@ let main argv =
     //let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
     
     // Test InstructionMetric evaluation
-    let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
+    (*let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
     let evaluation = instructionMetric.Evaluate([], <@ Convolution @>)
     let convInput = Array2D.create 10 10 2.0f
     let convFilter = Array2D.create 3 3 1.0f
     let convOutput = Array2D.create 10 10 2.0f
     let convBlock = Array2D.zeroCreate<float32> 8 8
     let instantiation = instructionMetric.Instantiate([], evaluation, <@ Convolution(convInput, convFilter, convOutput, convBlock) @>, ([| 10; 10 |], [| 5; 5 |]))
-    let runner = new KernelRunner()
+    *)
     // Dump instruction energy profiling
-    (*
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
     instructionMetric.DumpFolder <- Some("Dump")
     instructionMetric.MinInstr <- 1
-    instructionMetric.MaxInstr <- 6000
-    instructionMetric.Step <- 200
+    instructionMetric.MaxInstr <- 10000
+    instructionMetric.Step <- 1000
     instructionMetric.PerStepDuration <- 15000
     instructionMetric.ThreadCount <- 2048L
     for device in ComputePlatform.Platforms.[0].Devices do
@@ -127,14 +126,7 @@ let main argv =
     for device in ComputePlatform.Platforms.[0].Devices do
         transferMetric.Profile(device) |> ignore
         
-
-    let metric = new InstructionEnergyMetric()
-    metric.MinInstr <- 1
-    metric.MaxInstr <- 2048
-    metric.Step <- 100
-    metric.PerStepDuration <- 20000
-    metric.ThreadCount <- 2048L
-    *)
+    let runner = new KernelRunner()
     // Test vector addition
     let a = Array.create 10 10.0f
     let b = Array.create 10 10.0f
