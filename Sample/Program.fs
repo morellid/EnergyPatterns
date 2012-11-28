@@ -85,9 +85,88 @@ let VectorAdd(a: float32[], b: float32[], c: float32[]) =
     let gid = get_global_id(0)
     c.[gid] <- (a.[gid] + b.[gid])
 
+// Test functions
+let testMatrixMultEnergy() =    
+    // Create insturction energy metric
+    let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
+    instructionMetric.DumpFolder <- Some("Dump")
+    instructionMetric.MinInstr <- 1
+    instructionMetric.MaxInstr <- 10000
+    instructionMetric.Step <- 1000
+    instructionMetric.PerStepDuration <- 15000
+    instructionMetric.ThreadCount <- 2048L
+
+    let compiler = new KernelCompiler(instructionMetric)
+    let runner = new KernelRunner(compiler)
+    
+    let matA = Array2D.create 64 32 2.0f 
+    let matB = Array2D.create 32 64 2.0f
+    let matC = Array2D.zeroCreate<float32> 64 64
+    let energyClient = new Client("131.114.88.115")
+    let iterations = 1000
+    let ev = instructionMetric.Evaluate([], <@ MatrixMult @>)
+    let instr = instructionMetric.Instantiate([], ev, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
+    
+    let timer = System.Diagnostics.Stopwatch()
+    let startMsg = energyClient.start()
+    timer.Start()
+    for i in 0 .. iterations - 1 do
+        runner.Run(<@ MatrixMult(matA, matB, matC) @>, 
+                   [| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |])
+    timer.Stop()
+    let endMsg = energyClient.stop()
+    let avgen = System.Double.TryParse(endMsg.Replace(",", "."))
+
+    let fileName = "MatrixMult_Real.csv"  
+    let content = ref "Instructions,AvgEnergy,Duration,Iterations;\n"
+    content := !content + instr.ToString() + "," + avgen.ToString() + "," + timer.ElapsedMilliseconds.ToString() + "," + iterations.ToString() + ";\n"
+    System.IO.File.WriteAllText(fileName, !content)
+    
+let testVectorAddEnergy() =    
+    // Create insturction energy metric
+    let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
+    instructionMetric.DumpFolder <- Some("Dump")
+    instructionMetric.MinInstr <- 1
+    instructionMetric.MaxInstr <- 10000
+    instructionMetric.Step <- 1000
+    instructionMetric.PerStepDuration <- 15000
+    instructionMetric.ThreadCount <- 2048L
+
+    let compiler = new KernelCompiler(instructionMetric)
+    let runner = new KernelRunner(compiler)
+    
+    let a = Array.create (2 <<< 10) 2.0f 
+    let b = Array.create (2 <<< 10) 2.0f
+    let c = Array.zeroCreate<float32> (2 <<< 10)
+    let energyClient = new Client("131.114.88.115")
+    let iterations = 1000
+    let ev = instructionMetric.Evaluate([], <@ VectorAdd @>)
+    let instr = instructionMetric.Instantiate([], ev, <@ VectorAdd(a, b, c) @>, ([| a.Length |], [| 128 |]))
+    
+    let timer = System.Diagnostics.Stopwatch()
+    let startMsg = energyClient.start()
+    timer.Start()
+    for i in 0 .. iterations - 1 do
+        runner.Run(<@ VectorAdd(a, b, c) @>, [| a.Length |], [| 128 |])
+    timer.Stop()
+    let endMsg = energyClient.stop()
+    let avgen = System.Double.TryParse(endMsg.Replace(",", "."))
+
+    let fileName = "VectorAdd_Real.csv"  
+    let content = ref "Instructions,AvgEnergy,Duration,Iterations;\n"
+    content := !content + instr.ToString() + "," + avgen.ToString() + "," + timer.ElapsedMilliseconds.ToString() + "," + iterations.ToString() + ";\n"
+    System.IO.File.WriteAllText(fileName, !content)
+
 [<EntryPoint>]
 let main argv =
-    
+    // Test Vector Add
+    let runner = new KernelRunner()
+
+    let a = Array.create (2 <<< 10) 2.0f 
+    let b = Array.create (2 <<< 10) 2.0f
+    let c = Array.zeroCreate<float32> (2 <<< 10)
+    runner.Run(<@ VectorAdd(a, b, c) @>, [| a.Length |], [| 128 |])
+
     // Test conversion with new pipeline
     //let oldel1 = FSCL.KernelBinding.Compile(<@ MatrixMult @>)
     //let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
@@ -127,39 +206,8 @@ let main argv =
     for device in ComputePlatform.Platforms.[0].Devices do
         transferMetric.Profile(device) |> ignore
         *)
-    let runner = new KernelRunner()
     // Test vector addition
     
-    let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
-    instructionMetric.DumpFolder <- Some("Dump")
-    instructionMetric.MinInstr <- 1
-    instructionMetric.MaxInstr <- 10000
-    instructionMetric.Step <- 1000
-    instructionMetric.PerStepDuration <- 15000
-    instructionMetric.ThreadCount <- 2048L
-    
-    let matA = Array2D.create 64 32 2.0f 
-    let matB = Array2D.create 32 64 2.0f
-    let matC = Array2D.zeroCreate<float32> 64 64
-    let energyClient = new Client("131.114.88.115")
-    let iterations = 1000
-    let ev = instructionMetric.Evaluate([], <@ MatrixMult @>)
-    let instr = instructionMetric.Instantiate([], ev, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
-    
-    let timer = System.Diagnostics.Stopwatch()
-    let startMsg = energyClient.start()
-    timer.Start()
-    for i in 0 .. iterations - 1 do
-        runner.Run(<@ MatrixMult(matA, matB, matC) @>, 
-                   [| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |])
-    timer.Stop()
-    let endMsg = energyClient.stop()
-    let avgen = System.Double.TryParse(endMsg.Replace(",", "."))
-
-    let fileName = "MatrixMult_Real.csv"  
-    let content = ref "Instructions,AvgEnergy,Duration,Iterations;\n"
-    content := !content + instr.ToString() + "," + avgen.ToString() + "," + timer.ElapsedMilliseconds.ToString() + "," + iterations.ToString() + ";\n"
-    System.IO.File.WriteAllText(fileName, !content)
                (*
     // Test vector reduction
     let redA = Array.create 1024 10

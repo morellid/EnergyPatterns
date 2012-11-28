@@ -44,10 +44,10 @@
     <Compile Include="FSCL.fs" />
     <None Include="Script.fsx" />
     <Compile Include="FSCLException.fs" />
-    <Compile Include="FSCLUtil.fs" />
-    <Compile Include="KernelBinding.fs" />
-    <Compile Include="FSCLPatterns.fs" />
-    <Compile Include="FSCLKernelRunner.fs" />
+    <Compile Include="KernelCompiler.Tools.fs" />
+    <Compile Include="KernelCompiler.fs" />
+    <Compile Include="KernelRunner.Tools.fs" />
+    <Compile Include="KernelRunner.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
@@ -63,6 +63,11 @@
     <ProjectReference Include="..\FSCL.Transformation\FSCL.Transformation.fsproj">
       <Name>FSCL.Transformation</Name>
       <Project>{0860f2a4-632c-40bf-88f8-35ad2c3cc737}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\MetricUtil\MetricBase.fsproj">
+      <Name>MetricBase</Name>
+      <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\QuotationEvaluation\QuotationEvaluation.fsproj">
