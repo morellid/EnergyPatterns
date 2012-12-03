@@ -12,7 +12,7 @@ open EnergyMetric
 // The below one needs PowerPack :(
 open Microsoft.FSharp.Linq.QuotationEvaluation
 
-type EnergyProfilingResult = (int * double * double * int64 * int) list
+type EnergyProfilingResult = (int * int64 * double * double * int64 * int) list
 type EnergyInstantiationResult = double
 type EnergyEvaluationResult = Expr
 // Local and global sizes
@@ -23,9 +23,11 @@ type InstructionEnergyMetric(ammeterIp) =
 
     let mutable min_instr = 1
     let mutable max_instr = 1
-    let mutable step = 1
+    let mutable min_thread = 1L
+    let mutable max_thread = 1L
+    let mutable instr_step = (fun (i:int) -> i * 2)
+    let mutable thread_step = (fun (i:int64) -> i * 2L)
     let mutable per_step_duration = 0
-    let mutable thread_count = 128L
 
     member val AmmeterIp = ammeterIp with get, set
 
@@ -37,17 +39,25 @@ type InstructionEnergyMetric(ammeterIp) =
         with get() = max_instr
         and set instr = max_instr <- instr
         
-    member this.Step 
-        with get() = step
-        and set instr = step <- instr
+    member this.MinThread 
+        with get() = min_thread
+        and set th = min_thread <- th
+
+    member this.MaxThread 
+        with get() = max_thread
+        and set th = max_thread <- th
+
+    member this.InstrStep 
+        with get() = instr_step
+        and set instr = instr_step <- instr
+        
+    member this.ThreadStep 
+        with get() = thread_step
+        and set instr = thread_step <- instr
 
     member this.PerStepDuration 
         with get() = per_step_duration
         and set duration = per_step_duration <- duration
-        
-    member this.ThreadCount 
-        with get() = thread_count
-        and set count = thread_count <- count
 
     override this.Profile(device:ComputeDevice) =
 
@@ -60,47 +70,57 @@ type InstructionEnergyMetric(ammeterIp) =
         devices.Add(device)
         let computeContext = new ComputeContext(devices, contextProperties, null, System.IntPtr.Zero);
             
+        // Calculate list of thread count
+        let threadCount = seq { 
+                                let i = ref this.MinThread
+                                while !i <= this.MaxThread do 
+                                    yield !i
+                                    i := this.ThreadStep !i
+                                }
+        
         // Calculate list of instr count
         let instrCount = seq { 
                                 let i = ref this.MinInstr
                                 while !i <= this.MaxInstr do 
                                     yield !i
-                                    i := !i + this.Step
+                                    i := this.InstrStep !i
                                 }
 
         // For each instr count run the test
         for currInstr in instrCount do
-            let computeProgram = new ComputeProgram(computeContext, [| Tools.KernelBuilder.BuildLoopKernel() |])
-            computeProgram.Build(devices, "", null, System.IntPtr.Zero)
-            let computeKernel = computeProgram.CreateKernel("run")
-            let computeQueue = new ComputeCommandQueue(computeContext, device, ComputeCommandQueueFlags.OutOfOrderExecution)
-            let inputBuffer = new ComputeBuffer<float>(computeContext, ComputeMemoryFlags.ReadOnly, 4L)
-            let outputBuffer = new ComputeBuffer<float>(computeContext, ComputeMemoryFlags.WriteOnly, 4L)
-            computeKernel.SetMemoryArgument(0, inputBuffer)
-            computeKernel.SetMemoryArgument(1, outputBuffer)
-            computeQueue.WriteToBuffer([| 1.0 |], inputBuffer, true, null) 
-            // Only for loop kernel
-            computeKernel.SetValueArgument(2, currInstr / 2)
+            for currThread in threadCount do
+                let computeProgram = new ComputeProgram(computeContext, [| Tools.KernelBuilder.BuildLoopKernel() |])
+                computeProgram.Build(devices, "", null, System.IntPtr.Zero)
+                let computeKernel = computeProgram.CreateKernel("run")
+                let computeQueue = new ComputeCommandQueue(computeContext, device, ComputeCommandQueueFlags.OutOfOrderExecution)
+                let inputBuffer = new ComputeBuffer<float>(computeContext, ComputeMemoryFlags.ReadOnly, 4L)
+                let outputBuffer = new ComputeBuffer<float>(computeContext, ComputeMemoryFlags.WriteOnly, 4L)
+                computeKernel.SetMemoryArgument(0, inputBuffer)
+                computeKernel.SetMemoryArgument(1, outputBuffer)
+                computeQueue.WriteToBuffer([| 1.0 |], inputBuffer, true, null) 
+                // Only for loop kernel
+                computeKernel.SetValueArgument(2, currInstr / 2)
 
-            // Run kernel n times to guarantee a total time >= PerStepDuration
-            let (endMessage, time, iterations) = Tools.GetEnergyConsumption (this.AmmeterIp) 20000.0 (fun () ->
-                computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
-                computeQueue.Finish())
+                // Run kernel n times to guarantee a total time >= PerStepDuration
+                let (endMessage, time, iterations) = Tools.GetEnergyConsumption (this.AmmeterIp) 20000.0 (fun () ->
+                    computeQueue.Execute(computeKernel, [| 0L |], [| currThread |], [|  Math.Min(128L, currThread) |], null) 
+                    computeQueue.Finish())
 
-            // Energy per instruction
-            let avgEnergy = Double.TryParse(endMessage.Replace(",", "."))
-            match avgEnergy with
-            | (true, v) ->
-                let energyPerInstr = ((v / 1000.0) * (double)time) / ((double)currInstr)
-                result <- result @ [ (currInstr, v, energyPerInstr, time, iterations) ]
-            | (false, _) ->
-                let t = 0
-                ()
+                // Energy per instruction
+                let v = ref 0.0
+                let avgEnergy = Double.TryParse(endMessage.Replace(",", "."), v)
+                match avgEnergy with
+                | true ->
+                    let energyPerInstr = ((!v / 1000.0) * (double)time) / ((double)currInstr)
+                    result <- result @ [ (currInstr, currThread, !v, energyPerInstr, time, iterations) ]
+                | false ->
+                    let t = 0
+                    ()
 
         // Dump on file if enable 
-        let content = ref "Instructions,AvgEnergy,EnergyPerInstruction,Duration,Iterations;\n"
-        List.iter (fun (instr:int,avgen,en:float,time,iterations) ->
-            content := !content + instr.ToString() + "," + avgen.ToString() + "," + en.ToString() + "," + time.ToString() + "," + iterations.ToString() + ";\n") result
+        let content = ref "Instructions,Threads,AvgEnergy,EnergyPerInstruction,Duration,Iterations\n"
+        List.iter (fun (instr:int,thread:int64,avgen,en:float,time,iterations) ->
+            content := !content + instr.ToString() + "," + thread.ToString() + "," + avgen.ToString() + "," + en.ToString() + "," + time.ToString() + "," + iterations.ToString() + ";\n") result
         this.Dump("Profiling-" + this.GetType().Name + "-" + device.Name.Replace(' ', '_') + ".csv", !content) 
         result
             

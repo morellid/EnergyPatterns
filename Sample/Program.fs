@@ -116,9 +116,13 @@ let testMatrixMultEnergy() =
     instructionMetric.DumpFolder <- Some("Dump")
     instructionMetric.MinInstr <- 1
     instructionMetric.MaxInstr <- 10000
-    instructionMetric.Step <- 1000
+    instructionMetric.InstrStep <- (fun i -> i * 2)
+    instructionMetric.MinThread <- 1L
+    instructionMetric.MaxThread <- (int64)(2 <<< 10)
+    instructionMetric.ThreadStep <- (fun i -> i * 2L)
     instructionMetric.PerStepDuration <- 15000
-    instructionMetric.ThreadCount <- 2048L
+    for device in ComputePlatform.Platforms.[0].Devices do
+        instructionMetric.Profile(device) |> ignore
 
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
@@ -147,9 +151,13 @@ let testVectorAddEnergy() =
     instructionMetric.DumpFolder <- Some("Dump")
     instructionMetric.MinInstr <- 1
     instructionMetric.MaxInstr <- 10000
-    instructionMetric.Step <- 1000
+    instructionMetric.InstrStep <- (fun i -> i * 2)
+    instructionMetric.MinThread <- 64L
+    instructionMetric.MaxThread <- (int64)(2 <<< 10)
+    instructionMetric.ThreadStep <- (fun i -> i * 2L)
     instructionMetric.PerStepDuration <- 15000
-    instructionMetric.ThreadCount <- 2048L
+    for device in ComputePlatform.Platforms.[0].Devices do
+        instructionMetric.Profile(device) |> ignore
 
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
@@ -173,6 +181,8 @@ let testVectorAddEnergy() =
 
 [<EntryPoint>]
 let main argv =
+    testVectorAddEnergy()
+    
     // Test compiler    
     let pipeline = KernelCompilerTools.DefaultTransformationPipeline()
     let r = pipeline.Run((Some(<@@ MatrixMultWithReturn @@>), None))
