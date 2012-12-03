@@ -7,6 +7,7 @@ open System
 open Microsoft.FSharp.Reflection
 open EnergyPatterns.RemoteAmmeter
 open System.IO
+open EnergyMetric
 
 // The below one needs PowerPack :(
 open Microsoft.FSharp.Linq.QuotationEvaluation
@@ -25,13 +26,8 @@ type InstructionEnergyMetric(ammeterIp) =
     let mutable step = 1
     let mutable per_step_duration = 0
     let mutable thread_count = 128L
-    let mutable dumpFile = None
 
     member val AmmeterIp = ammeterIp with get, set
-
-    member this.DumpFolder
-        with get() = dumpFile
-        and set v = dumpFile <- v
 
     member this.MinInstr 
         with get() = min_instr
@@ -54,8 +50,6 @@ type InstructionEnergyMetric(ammeterIp) =
         and set count = thread_count <- count
 
     override this.Profile(device:ComputeDevice) =
-        // Create ammeter client
-        let client = new Client(this.AmmeterIp)
 
         let mutable result = []
 
@@ -89,52 +83,25 @@ type InstructionEnergyMetric(ammeterIp) =
             computeKernel.SetValueArgument(2, currInstr / 2)
 
             // Run kernel n times to guarantee a total time >= PerStepDuration
-            let timer = System.Diagnostics.Stopwatch()
-            let mutable testIterations = 1
-            let mutable reliableTest = false
-            while (not reliableTest) do
-                timer.Reset()
-                timer.Start()
-                for i in 0 .. testIterations do
-                    computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
-                    computeQueue.Finish()
-                timer.Stop()
-
-                if (timer.ElapsedMilliseconds > 100L) then
-                    reliableTest <- true
-                else
-                    testIterations <- testIterations * 10
-
-            let iterations = (int) ((double)this.PerStepDuration * (double)testIterations / ((double)timer.ElapsedMilliseconds))
-            timer.Reset()
-            let startMessage = client.start()
-            timer.Start()
-            for i in 0 .. iterations - 1 do
+            let (endMessage, time, iterations) = Tools.GetEnergyConsumption (this.AmmeterIp) 20000.0 (fun () ->
                 computeQueue.Execute(computeKernel, [| 0L |], [| this.ThreadCount |], [|  Math.Min(128L, this.ThreadCount) |], null) 
-                computeQueue.Finish()
-            timer.Stop()
-            let endMessage = client.stop()
+                computeQueue.Finish())
 
             // Energy per instruction
             let avgEnergy = Double.TryParse(endMessage.Replace(",", "."))
             match avgEnergy with
             | (true, v) ->
-                let energyPerInstr = ((v / 1000.0) * (double)timer.ElapsedMilliseconds) / ((double)currInstr)
-                result <- result @ [ (currInstr, v, energyPerInstr, timer.ElapsedMilliseconds, iterations) ]
+                let energyPerInstr = ((v / 1000.0) * (double)time) / ((double)currInstr)
+                result <- result @ [ (currInstr, v, energyPerInstr, time, iterations) ]
             | (false, _) ->
                 let t = 0
                 ()
 
-        // Dump on file if enable
-        if dumpFile.IsSome then
-            if not (Directory.Exists(dumpFile.Value)) then
-                Directory.CreateDirectory(dumpFile.Value) |> ignore
-
-            let fileName = dumpFile.Value + "\\" + "Profiling-" + this.GetType().Name + "-" + device.Name.Replace(' ', '_') + ".csv"  
-            let content = ref "Instructions,AvgEnergy,EnergyPerInstruction,Duration,Iterations;\n"
-            List.iter (fun (instr:int,avgen,en:float,time,iterations) ->
-                content := !content + instr.ToString() + "," + avgen.ToString() + "," + en.ToString() + "," + time.ToString() + "," + iterations.ToString() + ";\n") result
-            File.WriteAllText(fileName, !content)
+        // Dump on file if enable 
+        let content = ref "Instructions,AvgEnergy,EnergyPerInstruction,Duration,Iterations;\n"
+        List.iter (fun (instr:int,avgen,en:float,time,iterations) ->
+            content := !content + instr.ToString() + "," + avgen.ToString() + "," + en.ToString() + "," + time.ToString() + "," + iterations.ToString() + ";\n") result
+        this.Dump("Profiling-" + this.GetType().Name + "-" + device.Name.Replace(' ', '_') + ".csv", !content) 
         result
             
             
@@ -142,7 +109,9 @@ type InstructionEnergyMetric(ammeterIp) =
         let kernel = Tools.KernelTools.ExtractKernelDefinition(expr)
         let count = Tools.InstructionCountEstimator.EstimateInstructionCount(kernel)
         if (count.IsSome) then
-            count.Value
+            let result = count.Value
+            this.Dump("Evaluate-" + this.GetType().Name + "-" + kernel.Name + ".csv", result.ToString()) 
+            result
         else
             raise (MetricBase.Exceptions.MetricEvaluationError("Cannot evaluate instruction count\n"))
                 
@@ -181,13 +150,15 @@ type InstructionEnergyMetric(ammeterIp) =
         let result = finalExpr.EvalUntyped()
         
         // Dump on file if enable
-        if dumpFile.IsSome then
-            if not (Directory.Exists(dumpFile.Value)) then
-                Directory.CreateDirectory(dumpFile.Value) |> ignore
-
-            let fileName = dumpFile.Value + "\\" + "Instatiate-" + this.GetType().Name + "-" + methodInfo.Name + ".csv"  
-            let content = ref ("Instructions;" + (result :?> double).ToString())
-            File.WriteAllText(fileName, !content)
+        let mutable content = String.concat "," (Seq.ofList (List.mapi (fun i (e:Expr) -> "Parameter" + i.ToString()) args)) + ";\n"
+        content <- content + String.concat "," (Seq.ofList (List.map (fun (e:Expr) -> e.ToString()) args)) + ";\n"
+        content <- content + String.concat "," (seq { for i = 0 to globalSize.Length - 1 do yield "Global size " + i.ToString() }) + ";\n"
+        content <- content + String.concat "," (seq { for i = 0 to globalSize.Length - 1 do yield globalSize.[i].ToString() }) + ";\n"
+        content <- content + String.concat "," (seq { for i = 0 to localSize.Length - 1 do yield "Local size " + i.ToString() }) + ";\n"
+        content <- content + String.concat "," (seq { for i = 0 to localSize.Length - 1 do yield localSize.[i].ToString() }) + ";\n"
+        content <- content + "Result;\n"
+        content <- content + result.ToString() + ";\n"
+        this.Dump("Instantiate-" + this.GetType().Name + "-" + methodInfo.Name + ".csv", content)
 
         result :?> double
             

@@ -5,8 +5,8 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Reflection
 open Microsoft.FSharp.Linq.QuotationEvaluation
-open FSCL.Transformation.Processors
-open FSCL.Transformation
+open FSCL.Compiler.Processors
+open FSCL.Compiler
         
 type KernelRunner =    
     val compiler : KernelCompiler
@@ -41,14 +41,14 @@ type KernelRunner =
             if par.ParameterType.IsArray then
                 let o = arg.EvalUntyped()
                 // Check if constant buffer. In this case we pass the dimension (sizeof) the array and not a real buffer
-                if (!matchingKernel).Value.Parameters.[par].AddressSpace = KernelParameterAddressSpace.LocalSpace then
+                if (!matchingKernel).Value.Parameters.[par.Name].AddressSpace = KernelParameterAddressSpace.LocalSpace then
                     let size = (o.GetType().GetProperty("LongLength").GetValue(o) :?> int64) * 
                                (int64 (System.Runtime.InteropServices.Marshal.SizeOf(o.GetType().GetElementType())))
                     // Set kernel arg
                     kernelInstance.Kernel.SetLocalArgument(!argIndex, size) 
                 else
                     // Check if read or read_write mode
-                    let matchingParameter = (!matchingKernel).Value.Parameters.[par]
+                    let matchingParameter = (!matchingKernel).Value.Parameters.[par.Name]
                     let access = matchingParameter.Access
                     let mustInitBuffer =
                         ((matchingParameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace) ||
@@ -112,13 +112,13 @@ type KernelRunner =
         // Read result if needed
         Array.iteri (fun index (par:ParameterInfo, dim:int, arg:Expr) ->
             if par.ParameterType.IsArray then
-                if (!matchingKernel).Value.Parameters.[par].AddressSpace <> KernelParameterAddressSpace.LocalSpace then
+                if (!matchingKernel).Value.Parameters.[par.Name].AddressSpace <> KernelParameterAddressSpace.LocalSpace then
                     // Get association between parameter, array and buffer object
                     let (o, buffer) = paramObjectBufferMap.[par.Name]
 
                     // Check if write or read_write mode
                     let mutable mustReadBuffer = false
-                    let matchingParameter = (!matchingKernel).Value.Parameters.[par]
+                    let matchingParameter = (!matchingKernel).Value.Parameters.[par.Name]
                     let access = matchingParameter.Access
                     mustReadBuffer <-                     
                         ((matchingParameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace)) &&

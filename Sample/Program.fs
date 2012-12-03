@@ -9,6 +9,7 @@ open Cloo
 open Microsoft.FSharp.Collections
 open fscl
 open EnergyPatterns.RemoteAmmeter
+open EnergyMetric
 
 // Example of macro
 [<ReflectedDefinition>]
@@ -81,9 +82,32 @@ let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
     
 [<Kernel>]
 [<ReflectedDefinition>]
+let MatrixMultWithReturn(a: float32[,], b: float32[,]) =
+    let c = Array2D.zeroCreate<float32> (a.GetLength(0)) (b.GetLength(1))
+
+    let x = get_global_id(0)
+    let y = get_global_id(1)
+
+    let mutable accum = 0.0f
+    for k = 0 to a.GetLength(1) - 1 do
+        accum <- accum + (a.[x,k] * b.[k,y])
+    c.[x,y] <- accum
+
+    c
+
+[<Kernel>]
+[<ReflectedDefinition>]
 let VectorAdd(a: float32[], b: float32[], c: float32[]) =
     let gid = get_global_id(0)
     c.[gid] <- (a.[gid] + b.[gid])
+    
+[<Kernel>]
+[<ReflectedDefinition>]
+let VectorAddWithReturn(a: float32[], b: float32[]) =
+    let c = Array.zeroCreate<float32> (a.Length)
+    let gid = get_global_id(0)
+    c.[gid] <- (a.[gid] + b.[gid])
+    c
 
 // Test functions
 let testMatrixMultEnergy() =    
@@ -98,8 +122,9 @@ let testMatrixMultEnergy() =
 
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
+    compiler.Add(<@ MatrixMult @>) |> ignore
     
-    let matA = Array2D.create 64 32 2.0f 
+    let matA = Array2D.create 3 2 2.0f 
     let matB = Array2D.create 32 64 2.0f
     let matC = Array2D.zeroCreate<float32> 64 64
     let energyClient = new Client("131.114.88.115")
@@ -107,19 +132,13 @@ let testMatrixMultEnergy() =
     let ev = instructionMetric.Evaluate([], <@ MatrixMult @>)
     let instr = instructionMetric.Instantiate([], ev, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
     
-    let timer = System.Diagnostics.Stopwatch()
-    let startMsg = energyClient.start()
-    timer.Start()
-    for i in 0 .. iterations - 1 do
-        runner.Run(<@ MatrixMult(matA, matB, matC) @>, 
-                   [| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |])
-    timer.Stop()
-    let endMsg = energyClient.stop()
+    let endMsg, time, iterations = Tools.GetEnergyConsumption ("131.114.88.115") ((float)instructionMetric.PerStepDuration) (fun () ->
+        runner.Run(<@ MatrixMult(matA, matB, matC) @>, [| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
     let avgen = System.Double.TryParse(endMsg.Replace(",", "."))
 
     let fileName = "MatrixMult_Real.csv"  
     let content = ref "Instructions,AvgEnergy,Duration,Iterations;\n"
-    content := !content + instr.ToString() + "," + avgen.ToString() + "," + timer.ElapsedMilliseconds.ToString() + "," + iterations.ToString() + ";\n"
+    content := !content + instr.ToString() + "," + avgen.ToString() + "," + time.ToString() + "," + iterations.ToString() + ";\n"
     System.IO.File.WriteAllText(fileName, !content)
     
 let testVectorAddEnergy() =    
@@ -134,63 +153,52 @@ let testVectorAddEnergy() =
 
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
+    compiler.Add(<@ VectorAdd @>) |> ignore
     
     let a = Array.create (2 <<< 10) 2.0f 
     let b = Array.create (2 <<< 10) 2.0f
     let c = Array.zeroCreate<float32> (2 <<< 10)
-    let energyClient = new Client("131.114.88.115")
-    let iterations = 1000
     let ev = instructionMetric.Evaluate([], <@ VectorAdd @>)
     let instr = instructionMetric.Instantiate([], ev, <@ VectorAdd(a, b, c) @>, ([| a.Length |], [| 128 |]))
     
-    let timer = System.Diagnostics.Stopwatch()
-    let startMsg = energyClient.start()
-    timer.Start()
-    for i in 0 .. iterations - 1 do
-        runner.Run(<@ VectorAdd(a, b, c) @>, [| a.Length |], [| 128 |])
-    timer.Stop()
-    let endMsg = energyClient.stop()
+    let endMsg, time, iterations = Tools.GetEnergyConsumption ("131.114.88.115") ((float)instructionMetric.PerStepDuration) (fun () ->
+        runner.Run(<@ VectorAdd(a, b, c) @>, [| a.Length |], [| 128 |]))
+
     let avgen = System.Double.TryParse(endMsg.Replace(",", "."))
 
     let fileName = "VectorAdd_Real.csv"  
     let content = ref "Instructions,AvgEnergy,Duration,Iterations;\n"
-    content := !content + instr.ToString() + "," + avgen.ToString() + "," + timer.ElapsedMilliseconds.ToString() + "," + iterations.ToString() + ";\n"
+    content := !content + instr.ToString() + "," + avgen.ToString() + "," + time.ToString() + "," + iterations.ToString() + ";\n"
     System.IO.File.WriteAllText(fileName, !content)
 
 [<EntryPoint>]
 let main argv =
+    // Test compiler    
+    let pipeline = KernelCompilerTools.DefaultTransformationPipeline()
+    let r = pipeline.Run((Some(<@@ MatrixMultWithReturn @@>), None))
+
     // Test Vector Add
     let runner = new KernelRunner()
-
     let a = Array.create (2 <<< 10) 2.0f 
     let b = Array.create (2 <<< 10) 2.0f
     let c = Array.zeroCreate<float32> (2 <<< 10)
     runner.Run(<@ VectorAdd(a, b, c) @>, [| a.Length |], [| 128 |])
+            
+    // Test vector reduction
+    let a = Array.create (2 <<< 10) 2
+    let b = Array.zeroCreate<int> (128)
+    let c = Array.zeroCreate<int> (2 <<< 10)
+    runner.Run(<@ Reduce(a, b, (2 <<< 10), c) @>, [| b.Length |], [| 64 |])
+    // Other reduction stages
+    let mutable outputSize = b.Length / 64
+    while outputSize > 64 do
+        runner.Run(<@ Reduce(c, b, outputSize, c) @>, [| outputSize |], [| 64 |])
+            
 
     // Test conversion with new pipeline
     //let oldel1 = FSCL.KernelBinding.Compile(<@ MatrixMult @>)
     //let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
-    
-    // Test InstructionMetric evaluation
-    (*let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
-    let evaluation = instructionMetric.Evaluate([], <@ Convolution @>)
-    let convInput = Array2D.create 10 10 2.0f
-    let convFilter = Array2D.create 3 3 1.0f
-    let convOutput = Array2D.create 10 10 2.0f
-    let convBlock = Array2D.zeroCreate<float32> 8 8
-    let instantiation = instructionMetric.Instantiate([], evaluation, <@ Convolution(convInput, convFilter, convOutput, convBlock) @>, ([| 10; 10 |], [| 5; 5 |]))
-    
-    // Dump instruction energy profiling
-    let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
-    instructionMetric.DumpFolder <- Some("Dump")
-    instructionMetric.MinInstr <- 1
-    instructionMetric.MaxInstr <- 10000
-    instructionMetric.Step <- 1000
-    instructionMetric.PerStepDuration <- 15000
-    instructionMetric.ThreadCount <- 2048L
-    for device in ComputePlatform.Platforms.[0].Devices do
-        instructionMetric.Profile(device) |> ignore
-        
+        (*
     // Dump memory transfer energy profiling
     let transferMetric = TransferEnergyMetric("131.114.88.115") 
     transferMetric.Validate <- true

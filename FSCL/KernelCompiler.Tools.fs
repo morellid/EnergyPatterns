@@ -1,12 +1,46 @@
 ﻿namespace FSCL
 
-open FSCL.Transformation
-open FSCL.Transformation.Processors
+open FSCL.Compiler
+open FSCL.Compiler.Processors
 open System.Reflection
 open Microsoft.FSharp.Quotations
 
-type internal KernelCompilerTools() =
+type KernelCompilerTools() =
     static member DefaultTransformationPipeline() =  
+        let refParser = new ParserStep<'Expr>()
+        refParser.ParserProcessors.Add(new KernelReferenceParser())
+        let miParser = new ParserStep<'MethodInfo>()
+        miParser.ParserProcessors.Add(new KernelMethodInfoParser())
+
+        let preprocessor = new PreprocessorStep()
+        preprocessor.PreprocessorProcessors.Add(new SignaturePreprocessor())
+        
+        let transformation = new TransformationStep()
+        transformation.TransformationProcessors.Add(new ReturnTypeTransformation())
+        transformation.TransformationProcessors.Add(new MacroExpansionTransformation())
+        transformation.TransformationProcessors.Add(new ConditionalAssignmentTransformation())
+        transformation.TransformationProcessors.Add(new ArrayAccessTransformation())
+
+        let secondTransformation = new TransformationStep()        
+        secondTransformation.TransformationProcessors.Add(new ReturnLifting())
+
+        let printer = new PrettyPrinterStep()
+        printer.SignaturePrettyPrinterProcessors.Add(new SignaturePrinter())
+        printer.TypePrettyPrinterProcessors.Add(new TypePrinter())
+        // ArrayAccess -> ArithmeticOperation -> Call order is important (to be fixed)
+        printer.BodyPrettyPrinterProcessors.Add(new ArrayAccessPrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new ArithmeticOperationPrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new CallPrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new ValuePrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new VarPrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new IfThenElsePrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new WhileLoopPrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new VarSetPrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new UnionCasePrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new DeclarationPrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new SequentialPrinter())
+        printer.BodyPrettyPrinterProcessors.Add(new IntegerRangeLoopPrinter())
+    (*
         let discovery = new KernelDiscoveryStage()
         let signature = new KernelSignatureTransformationStage()
         let body = new KernelBodyTransformationStage()
@@ -37,9 +71,9 @@ type internal KernelCompilerTools() =
         body.PropertyGetProcessors.Add(new MacroProcessor())
 
         body.GenericProcessors.Add(new ConditionalAssignmentProcessor())
-
+        *)
         // Run pipeline
-        ((discovery --> signature) + signature) --> body
+        (refParser + miParser) --> preprocessor --> transformation --> secondTransformation --> printer
         
     // Kernel extraction tools
     static member GetKernelArrayDimensions (t:System.Type) =
@@ -95,9 +129,9 @@ type internal KernelCompilerTools() =
                 | DerivedPatterns.MethodWithReflectedDefinition(b) ->                    
                     (isKernelCall, i, Array.mapi (fun i (p:ParameterInfo) -> (p, KernelCompilerTools.GetKernelArrayDimensions(p.ParameterType), a.[i])) (i.GetParameters()))
                 | _ ->
-                    raise (KernelTransformationException("A kernel definition must provide a function marked with ReflectedDefinition attribute"))
+                    raise (CompilerException("A kernel definition must provide a function marked with ReflectedDefinition attribute"))
             | _-> 
-                raise (KernelTransformationException("Cannot find a kernel function definition inside the expression"))
+                raise (CompilerException("Cannot find a kernel function definition inside the expression"))
         
         ExtractMethodInfoInner(expr)
 

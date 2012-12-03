@@ -63,14 +63,24 @@
       <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\FSCL.Transformation.Processors\FSCL.Transformation.Processors.fsproj">
-      <Name>FSCL.Transformation.Processors</Name>
-      <Project>{0d9e99ed-50b4-43cb-94e8-e3b62ba8a770}</Project>
+    <ProjectReference Include="..\FSCL.Compiler.Processors.Parsing\FSCL.Compiler.Processors.Parsing.fsproj">
+      <Name>FSCL.Compiler.Processors.Parsing</Name>
+      <Project>{a42da267-4d0e-4f14-a7e0-f2f9ab587005}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\FSCL.Transformation\FSCL.Transformation.fsproj">
-      <Name>FSCL.Transformation</Name>
-      <Project>{0860f2a4-632c-40bf-88f8-35ad2c3cc737}</Project>
+    <ProjectReference Include="..\FSCL.Compiler.Processors.Preprocessing\FSCL.Compiler.Processors.Preprocessing.fsproj">
+      <Name>FSCL.Compiler.Processors.Preprocessing</Name>
+      <Project>{ed8c50cd-4155-4d3a-a682-76757fb2b8d7}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler.Processors\FSCL.Compiler.Processors.fsproj">
+      <Name>FSCL.Compiler.Processors</Name>
+      <Project>{6134d298-dc88-4fbd-b49e-efcba61227d1}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\FSCL.Compiler.fsproj">
+      <Name>FSCL.Compiler</Name>
+      <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\FSCL\FSCL.fsproj">
@@ -81,6 +91,11 @@
     <ProjectReference Include="..\InstructionEnergyMetric\InstructionEnergyMetric.fsproj">
       <Name>InstructionEnergyMetric</Name>
       <Project>{74339ed3-11f9-477a-a8cb-30b881bf81ea}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\MetricTools\EnergyMetricTools.fsproj">
+      <Name>EnergyMetricTools</Name>
+      <Project>{cb4c5f5a-cdfd-4372-a565-bc7d2e362e22}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\MetricUtil\MetricBase.fsproj">

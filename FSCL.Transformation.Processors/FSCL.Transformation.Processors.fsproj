@@ -43,7 +43,6 @@
   <ItemGroup>
     <None Include="Script.fsx" />
     <Compile Include="ParameterData.fs" />
-    <Compile Include="ArithmeticOperationProcessor.fs" />
     <Compile Include="ImplicitCallProcessor.fs" />
     <Compile Include="ArrayAccessProcessor.fs" />
     <Compile Include="PlainTypeProcessor.fs" />
@@ -62,6 +61,8 @@
     <Compile Include="UnionCaseProcessor.fs" />
     <Compile Include="ConditionalAssignmentProcessor.fs" />
     <Compile Include="MacroProcessor.fs" />
+    <Compile Include="ReturnTypeAllocationProcessor.fs" />
+    <Compile Include="ReturnTypeProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FSCL.Transformation\FSCL.Transformation.fsproj">

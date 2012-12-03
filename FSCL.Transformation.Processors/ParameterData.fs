@@ -24,5 +24,7 @@ type KernelParameterInfo(parameterInfo:ParameterInfo) =
     member val SizeParameters = ([]:string list) with get, set
     member val AddressSpace = KernelParameterAddressSpace.AutoSpace with get, set
     member val Access = KernelParameterAccessMode.NoAccess with get, set
+    // For kernel return type
+    member val Expr = None with get, set
 
 type KernelParameterTable = Dictionary<ParameterInfo, KernelParameterInfo>

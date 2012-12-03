@@ -5,12 +5,12 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>74339ed3-11f9-477a-a8cb-30b881bf81ea</ProjectGuid>
+    <ProjectGuid>d31be481-6256-4f6a-a260-7e6c40938028</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>InstructionEnergyMetric</RootNamespace>
-    <AssemblyName>InstructionEnergyMetric</AssemblyName>
+    <RootNamespace>FSCL.Patterns</RootNamespace>
+    <AssemblyName>FSCL.Patterns</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>InstructionEnergyMetric</Name>
+    <Name>FSCL.Patterns</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -20,7 +20,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\InstructionEnergyMetric.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\FSCL.Patterns.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,53 +29,35 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\InstructionEnergyMetric.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\FSCL.Patterns.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Energon.Extech">
-      <HintPath>..\Ammeters\RemoteAmmeter\Energon.Extech.dll</HintPath>
-    </Reference>
-    <Reference Include="Energon.Measuring">
-      <HintPath>..\Ammeters\RemoteAmmeter\Energon.Measuring.dll</HintPath>
-    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
-    </Reference>
-    <Reference Include="RemoteAmmeter">
-      <HintPath>..\Ammeters\RemoteAmmeter\RemoteAmmeter.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Stack.fs" />
-    <Compile Include="ExpressionAnalyzer.fs" />
-    <Compile Include="InstructionCountEstimator.fs" />
-    <Compile Include="KernelBuilder.fs" />
-    <Compile Include="IntructionEnergyMetric.fs" />
+    <Compile Include="Patterns.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
-      <Name>Cloo.VS2010</Name>
-      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
+    <ProjectReference Include="..\FSCL.Transformation.Processors\FSCL.Transformation.Processors.fsproj">
+      <Name>FSCL.Transformation.Processors</Name>
+      <Project>{0d9e99ed-50b4-43cb-94e8-e3b62ba8a770}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\MetricTools\EnergyMetricTools.fsproj">
-      <Name>EnergyMetricTools</Name>
-      <Project>{cb4c5f5a-cdfd-4372-a565-bc7d2e362e22}</Project>
+    <ProjectReference Include="..\FSCL.Transformation\FSCL.Transformation.fsproj">
+      <Name>FSCL.Transformation</Name>
+      <Project>{0860f2a4-632c-40bf-88f8-35ad2c3cc737}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\MetricUtil\MetricBase.fsproj">
-      <Name>MetricBase</Name>
-      <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\QuotationEvaluation\QuotationEvaluation.fsproj">
-      <Name>QuotationEvaluation</Name>
-      <Project>{4e34127e-86c3-48b8-9e7e-7d7c72dbc856}</Project>
+    <ProjectReference Include="..\FSCL\FSCL.fsproj">
+      <Name>FSCL</Name>
+      <Project>{57a5e768-a0aa-4b4f-b538-2bea1b4e5895}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

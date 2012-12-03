@@ -5,8 +5,8 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Reflection
 open Microsoft.FSharp.Linq.QuotationEvaluation
-open FSCL.Transformation.Processors
-open FSCL.Transformation
+open FSCL.Compiler.Processors
+open FSCL.Compiler
         
 type FSCLDeviceData(device:ComputeDevice, context, queue) =
     member val Device = device with get
@@ -31,7 +31,7 @@ type FSCLGlobalData() =
 type KernelCompiler =   
     val globalDataStorage : FSCLGlobalData
     val embeddedMetric : MetricBase.MetricBase option
-    val transformationPipeline : TransformationStage<Expr option * MethodInfo option, string>
+    val transformationPipeline : CompilerStep<Expr option * MethodInfo option, string>
      
     // Utility function to store kernels found all around the assembly. Called by the constructor
     member private this.StoreKernel(globalData:FSCLGlobalData, kernel:MethodInfo, platformIndex, deviceIndex) =    
@@ -45,7 +45,7 @@ type KernelCompiler =
        
         // Convert kernel         
         let conversionData = this.transformationPipeline.Run(None, Some(kernel))
-        let state = this.transformationPipeline.TransformationDataCopy
+        let state = this.transformationPipeline.CompilerDataCopy
 
         // Discover platform and device
         let platform = ComputePlatform.Platforms.[platformIndex]
