@@ -155,7 +155,7 @@ let testVectorAddEnergy() =
     instructionMetric.MinThread <- 64L
     instructionMetric.MaxThread <- (int64)(2 <<< 10)
     instructionMetric.ThreadStep <- (fun i -> i * 2L)
-    instructionMetric.PerStepDuration <- 15000
+    instructionMetric.PerStepDuration <- 10000
     for device in ComputePlatform.Platforms.[0].Devices do
         instructionMetric.Profile(device) |> ignore
 

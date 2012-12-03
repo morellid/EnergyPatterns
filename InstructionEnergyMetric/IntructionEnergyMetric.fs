@@ -71,20 +71,20 @@ type InstructionEnergyMetric(ammeterIp) =
         let computeContext = new ComputeContext(devices, contextProperties, null, System.IntPtr.Zero);
             
         // Calculate list of thread count
-        let threadCount = seq { 
+        let threadCount = List.ofSeq(seq { 
                                 let i = ref this.MinThread
                                 while !i <= this.MaxThread do 
                                     yield !i
                                     i := this.ThreadStep !i
-                                }
+                                })
         
         // Calculate list of instr count
-        let instrCount = seq { 
+        let instrCount = List.ofSeq(seq { 
                                 let i = ref this.MinInstr
                                 while !i <= this.MaxInstr do 
                                     yield !i
                                     i := this.InstrStep !i
-                                }
+                                })
 
         // For each instr count run the test
         for currInstr in instrCount do
