@@ -10,6 +10,7 @@ open Microsoft.FSharp.Collections
 open fscl
 open EnergyPatterns.RemoteAmmeter
 open EnergyMetric
+open FSCL.KernelExtension
 
 // Example of macro
 [<ReflectedDefinition>]
@@ -43,9 +44,8 @@ let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[
         for c = 0 to filterWidth - 1 do
             sum <- filter.[r,c] * block.[local_y + r, local_x + c]
     output.[yOut,xOut] <- sum
-
-[<Kernel>]
-[<ReflectedDefinition>]
+    
+[<Kernel>][<ReflectedDefinition>]
 let Reduce(g_idata:int[], [<Local>]sdata:int[], n, g_odata:int[]) =
     // perform first level of reduction,
     // reading from global memory, writing to shared memory
@@ -69,8 +69,7 @@ let Reduce(g_idata:int[], [<Local>]sdata:int[], n, g_odata:int[]) =
     if (tid = 0) then 
         g_odata.[get_group_id(0)] <- sdata.[0]
         
-[<Kernel>]
-[<ReflectedDefinition>]
+[<Kernel>][<ReflectedDefinition>]
 let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
     let x = get_global_id(0)
     let y = get_global_id(1)
@@ -80,8 +79,7 @@ let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
         accum <- accum + (a.[x,k] * b.[k,y])
     c.[x,y] <- accum
     
-[<Kernel>]
-[<ReflectedDefinition>]
+[<Kernel>][<ReflectedDefinition>]
 let MatrixMultWithReturn(a: float32[,], b: float32[,]) =
     let c = Array2D.zeroCreate<float32> (a.GetLength(0)) (b.GetLength(1))
 
@@ -94,15 +92,13 @@ let MatrixMultWithReturn(a: float32[,], b: float32[,]) =
     c.[x,y] <- accum
 
     c
-
-[<Kernel>]
-[<ReflectedDefinition>]
+    
+[<Kernel>][<ReflectedDefinition>]
 let VectorAdd(a: float32[], b: float32[], c: float32[]) =
-    let gid = get_global_id(0)
+    let gid = 0
     c.[gid] <- (a.[gid] + b.[gid])
     
-[<Kernel>]
-[<ReflectedDefinition>]
+[<Kernel>][<ReflectedDefinition>]
 let VectorAddWithReturn(a: float32[], b: float32[]) =
     let c = Array.zeroCreate<float32> (a.Length)
     let gid = get_global_id(0)
@@ -131,7 +127,6 @@ let testMatrixMultEnergy() =
     let matA = Array2D.create 3 2 2.0f 
     let matB = Array2D.create 32 64 2.0f
     let matC = Array2D.zeroCreate<float32> 64 64
-    let energyClient = new Client("131.114.88.115")
     let iterations = 1000
     let ev = instructionMetric.Evaluate([], <@ MatrixMult @>)
     let instr = instructionMetric.Instantiate([], ev, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
@@ -144,7 +139,7 @@ let testMatrixMultEnergy() =
     let content = ref "Instructions,AvgEnergy,Duration,Iterations;\n"
     content := !content + instr.ToString() + "," + avgen.ToString() + "," + time.ToString() + "," + iterations.ToString() + ";\n"
     System.IO.File.WriteAllText(fileName, !content)
-    
+      
 let testVectorAddEnergy() =    
     // Create insturction energy metric
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
@@ -162,7 +157,7 @@ let testVectorAddEnergy() =
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
     compiler.Add(<@ VectorAdd @>) |> ignore
-    
+
     let a = Array.create (2 <<< 10) 2.0f 
     let b = Array.create (2 <<< 10) 2.0f
     let c = Array.zeroCreate<float32> (2 <<< 10)
@@ -181,20 +176,27 @@ let testVectorAddEnergy() =
 
 [<EntryPoint>]
 let main argv =
-    testVectorAddEnergy()
-    
-    // Test compiler    
-    let pipeline = KernelCompilerTools.DefaultTransformationPipeline()
-    let r = pipeline.Run((Some(<@@ MatrixMultWithReturn @@>), None))
+    // Test 2 ways of getting instruction count    
+    let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
+    let matA = Array2D.create 3 2 2.0f 
+    let matB = Array2D.create 32 64 2.0f
+    let matC = Array2D.zeroCreate<float32> 64 64
+    let iterations = 1000
+    let ev = instructionMetric.Evaluate([], <@ MatrixMult @>)
+    //let ev2 = instructionMetric.Evaluate2([], <@ MatrixMult @>)
+    let instr = instructionMetric.Instantiate([], ev, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
+    //let instr2 = instructionMetric.Instantiate([], ev2, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
 
     // Test Vector Add
     let runner = new KernelRunner()
     let a = Array.create (2 <<< 10) 2.0f 
     let b = Array.create (2 <<< 10) 2.0f
     let c = Array.zeroCreate<float32> (2 <<< 10)
-    runner.Run(<@ VectorAdd(a, b, c) @>, [| a.Length |], [| 128 |])
-            
-    // Test vector reduction
+    // 2 ways, but only the first avoid copies of parameters
+    runner.Kernel(<@ VectorAdd @>).WithSize([| a.Length |], [| 128 |]).Run(a, b, c)
+    kernel(VectorAdd)((a, b, c), [| a.Length |], [| 128 |], runner)
+             
+    // Test vector reduction 
     let a = Array.create (2 <<< 10) 2
     let b = Array.zeroCreate<int> (128)
     let c = Array.zeroCreate<int> (2 <<< 10)

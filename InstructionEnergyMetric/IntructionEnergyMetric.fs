@@ -8,13 +8,14 @@ open Microsoft.FSharp.Reflection
 open EnergyPatterns.RemoteAmmeter
 open System.IO
 open EnergyMetric
+open ExpressionCounter
 
 // The below one needs PowerPack :(
 open Microsoft.FSharp.Linq.QuotationEvaluation
 
 type EnergyProfilingResult = (int * int64 * double * double * int64 * int) list
-type EnergyInstantiationResult = double
-type EnergyEvaluationResult = Expr
+type EnergyInstantiationResult = (double * double * double)
+type EnergyEvaluationResult = (Expr * Expr * Expr)
 // Local and global sizes
 type EnergyCustomData = int array * int array
 
@@ -58,6 +59,66 @@ type InstructionEnergyMetric(ammeterIp) =
     member this.PerStepDuration 
         with get() = per_step_duration
         and set duration = per_step_duration <- duration
+
+    member private this.OnNewOperation (counter:Counter) (expr, parameters:Reflection.ParameterInfo[]) =
+        match expr with
+        | DerivedPatterns.SpecificCall <@ (+) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (-) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (*) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (/) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (%) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (&&) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (||) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (&&&) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (|||) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (^^^) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (~-) @> (e, t, a) 
+        | DerivedPatterns.SpecificCall <@ (~+) @> (e, t, a) ->
+            let result = ref <@ 1.0 @>
+            for arg in a do
+                let sub = counter.ContinueCount(arg)
+                result := <@ (%(!result) : double) + (%%sub : double) @>
+            Value(!result)
+        | _ ->
+            Continue
+
+    member private this.OnNewRead (counter:Counter) (expr, parameters:Reflection.ParameterInfo[]) =
+        match expr with
+        | Patterns.Call(o, mi, args) ->            
+            if mi.DeclaringType.Name = "IntrinsicFunctions" && mi.Name.StartsWith "GetArray" then
+                match args.[0] with
+                | Patterns.Var(v) ->
+                    let result = ref <@ 1.0 @>
+                    for arg in args do
+                        let sub = counter.ContinueCount(arg)
+                        result := <@ (%(!result) : double) + (%%sub : double) @>
+                    Value(!result)
+                | _ ->
+                    Continue
+            else
+                Continue
+        | _ ->
+            Continue
+                
+    member private this.OnNewWrite (counter:Counter) (expr, parameters:Reflection.ParameterInfo[]) =
+        match expr with
+        | Patterns.Call(o, mi, args) ->            
+            if mi.DeclaringType.Name = "IntrinsicFunctions" && mi.Name.StartsWith "SetArray" then
+                match args.[0] with
+                | Patterns.Var(v) ->
+                    let result = ref <@ 1.0 @>
+                    for arg in args do
+                        let sub = counter.ContinueCount(arg)
+                        result := <@ (%(!result) : double) + (%%sub : double) @>
+                    Value(!result)
+                | _ ->
+                    Continue
+            else
+                Continue
+        | _ ->
+            Continue     
 
     override this.Profile(device:ComputeDevice) =
 
@@ -124,8 +185,15 @@ type InstructionEnergyMetric(ammeterIp) =
         this.Dump("Profiling-" + this.GetType().Name + "-" + device.Name.Replace(' ', '_') + ".csv", !content) 
         result
             
-            
     override this.Evaluate(profiling, expr:Expr) =
+        let kernel = Tools.KernelTools.ExtractKernelDefinition(expr)
+        let counter = new Counter(kernel)
+        let instructions = counter.Count(this.OnNewOperation counter, true)
+        let reads = counter.Count(this.OnNewRead counter, false)
+        let writes = counter.Count(this.OnNewWrite counter, false)
+        (instructions, reads, writes)
+            
+    member this.Evaluate2(profiling, expr:Expr) =
         let kernel = Tools.KernelTools.ExtractKernelDefinition(expr)
         let count = Tools.InstructionCountEstimator.EstimateInstructionCount(kernel)
         if (count.IsSome) then
@@ -135,50 +203,55 @@ type InstructionEnergyMetric(ammeterIp) =
         else
             raise (MetricBase.Exceptions.MetricEvaluationError("Cannot evaluate instruction count\n"))
                 
-    override this.Instantiate(profiling, evaluation, invocation, (globalSize, localSize)) =
+    override this.Instantiate(profiling, evaluations, invocation, (globalSize, localSize)) =
         // Evaluation is something like "<compute instruction>"
         // To compute instructions we bind the variables that are free in <compute instruction>
         let (methodInfo, args) = MetricBase.Tools.KernelTools.ExtractKernelInvocation(invocation)
         let parameters = methodInfo.GetParameters()
-        let mutable freeVars = evaluation.GetFreeVars()
+        match evaluations with
+        | (instructions, reads, writes) ->
+            let result = List.map(fun (evaluation: Expr) ->
+                            let mutable freeVars = evaluation.GetFreeVars()
 
-        // Assign values to parameter references
-        let mutable finalExpr = evaluation
-        for var in freeVars do
-            let pIndex = Array.tryFindIndex (fun (p:Reflection.ParameterInfo) -> p.Name = var.Name) parameters
-            if pIndex.IsSome then
-                finalExpr <- Expr.Let(var, args.[pIndex.Value], finalExpr)
-                // Remove var free ones                
-                freeVars <- Seq.skip 1 freeVars
+                            // Assign values to parameter references
+                            let mutable finalExpr = evaluation
+                            for var in freeVars do
+                                let pIndex = Array.tryFindIndex (fun (p:Reflection.ParameterInfo) -> p.Name = var.Name) parameters
+                                if pIndex.IsSome then
+                                    finalExpr <- Expr.Let(var, args.[pIndex.Value], finalExpr)
+                                    // Remove var free ones                
+                                    freeVars <- Seq.skip 1 freeVars
                                       
-        // Assign values to fscl call placeholders
-        let groups = Array.mapi (fun i el ->  el / localSize.[i]) globalSize
-        for var in freeVars do
-            if var.Name.StartsWith "get_global_id" then
-                finalExpr <- Expr.Let(var, <@ Array.zeroCreate<int> 3 @>, finalExpr)
-            if var.Name.StartsWith "get_local_id" then
-                finalExpr <- Expr.Let(var, <@ Array.zeroCreate<int> 3 @>, finalExpr)
-            if var.Name.StartsWith "get_global_size" then
-                finalExpr <- Expr.Let(var, <@ globalSize @>, finalExpr)
-            if var.Name.StartsWith "get_local_size" then
-                finalExpr <- Expr.Let(var, <@ localSize @>, finalExpr)
-            if var.Name.StartsWith "get_num_groups" then 
-                finalExpr <- Expr.Let(var, <@ groups @>, finalExpr)
-            if var.Name.StartsWith "get_work_dim" then 
-                finalExpr <- Expr.Let(var, <@ groups.Rank @>, finalExpr)           
+                            // Assign values to fscl call placeholders
+                            let groups = Array.mapi (fun i el ->  el / localSize.[i]) globalSize
+                            for var in freeVars do
+                                if var.Name.StartsWith "get_global_id" then
+                                    finalExpr <- Expr.Let(var, <@ Array.zeroCreate<int> 3 @>, finalExpr)
+                                if var.Name.StartsWith "get_local_id" then
+                                    finalExpr <- Expr.Let(var, <@ Array.zeroCreate<int> 3 @>, finalExpr)
+                                if var.Name.StartsWith "get_global_size" then
+                                    finalExpr <- Expr.Let(var, <@ globalSize @>, finalExpr)
+                                if var.Name.StartsWith "get_local_size" then
+                                    finalExpr <- Expr.Let(var, <@ localSize @>, finalExpr)
+                                if var.Name.StartsWith "get_num_groups" then 
+                                    finalExpr <- Expr.Let(var, <@ groups @>, finalExpr)
+                                if var.Name.StartsWith "get_work_dim" then 
+                                    finalExpr <- Expr.Let(var, <@ groups.Rank @>, finalExpr)           
                 
-        let result = finalExpr.EvalUntyped()
-        
-        // Dump on file if enable
-        let mutable content = String.concat "," (Seq.ofList (List.mapi (fun i (e:Expr) -> "Parameter" + i.ToString()) args)) + ";\n"
-        content <- content + String.concat "," (Seq.ofList (List.map (fun (e:Expr) -> e.ToString()) args)) + ";\n"
-        content <- content + String.concat "," (seq { for i = 0 to globalSize.Length - 1 do yield "Global size " + i.ToString() }) + ";\n"
-        content <- content + String.concat "," (seq { for i = 0 to globalSize.Length - 1 do yield globalSize.[i].ToString() }) + ";\n"
-        content <- content + String.concat "," (seq { for i = 0 to localSize.Length - 1 do yield "Local size " + i.ToString() }) + ";\n"
-        content <- content + String.concat "," (seq { for i = 0 to localSize.Length - 1 do yield localSize.[i].ToString() }) + ";\n"
-        content <- content + "Result;\n"
-        content <- content + result.ToString() + ";\n"
-        this.Dump("Instantiate-" + this.GetType().Name + "-" + methodInfo.Name + ".csv", content)
+                            let result = finalExpr.EvalUntyped()
 
-        result :?> double
+                            result :?> double) [ instructions; reads; writes ]
+        
+            // Dump on file if enable
+            let mutable content = String.concat "," (Seq.ofList (List.mapi (fun i (e:Expr) -> "Parameter" + i.ToString()) args)) + ";\n"
+            content <- content + String.concat "," (Seq.ofList (List.map (fun (e:Expr) -> e.ToString()) args)) + ";\n"
+            content <- content + String.concat "," (seq { for i = 0 to globalSize.Length - 1 do yield "Global size " + i.ToString() }) + ";\n"
+            content <- content + String.concat "," (seq { for i = 0 to globalSize.Length - 1 do yield globalSize.[i].ToString() }) + ";\n"
+            content <- content + String.concat "," (seq { for i = 0 to localSize.Length - 1 do yield "Local size " + i.ToString() }) + ";\n"
+            content <- content + String.concat "," (seq { for i = 0 to localSize.Length - 1 do yield localSize.[i].ToString() }) + ";\n"
+            content <- content + "Instructions,Reads,Writes;\n"
+            content <- content + result.[0].ToString() + "," + result.[1].ToString() + "," + result.[2].ToString() + ";\n"
+            this.Dump("Instantiate-" + this.GetType().Name + "-" + methodInfo.Name + ".csv", content)
+
+            (result.[0], result.[1], result.[2])
             
