@@ -176,6 +176,8 @@ let testVectorAddEnergy() =
 
 [<EntryPoint>]
 let main argv =
+    testVectorAddEnergy()
+(*
     // Test 2 ways of getting instruction count    
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
     let matA = Array2D.create 3 2 2.0f 
@@ -210,7 +212,7 @@ let main argv =
     // Test conversion with new pipeline
     //let oldel1 = FSCL.KernelBinding.Compile(<@ MatrixMult @>)
     //let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
-        (*
+        
     // Dump memory transfer energy profiling
     let transferMetric = TransferEnergyMetric("131.114.88.115") 
     transferMetric.Validate <- true
@@ -225,10 +227,10 @@ let main argv =
     transferMetric.DstInfo.IsHostPtr <- false
     for device in ComputePlatform.Platforms.[0].Devices do
         transferMetric.Profile(device) |> ignore
-        *)
+        
     // Test vector addition
     
-               (*
+               
     // Test vector reduction
     let redA = Array.create 1024 10
     let redB = Array.zeroCreate<int> 128
@@ -242,41 +244,4 @@ let main argv =
     runner.Run(<@ MatrixMult(matA, matB, matC) @>, 
                [| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |])
     *)
-    // Test prettyPrinting
-    //let (str, a) = (FSCL.KernelBinding.ConvertToCLKernel(<@ MatrixMult @>)).Value
-    //printf "%s" str
-    (*
-    let b = Array.create 10 10.0
-    let c = Array.create 10 10.0
-    let count = 9
-
-    let m = metric :> AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyInstantiationResult>
-    let energyLambda = m.Evaluate(new ProfilingResult<EnergyProfilingResult>([]), <@ VectorAdd @>)
-    let instructions = m.Instantiate(energyLambda, <@ VectorAdd((Array.create 10 10.0), b, c, 2.0) @>)
-    printf "Number of instruction in the kernel (args = a, b, c): %f\n" instructions.Result
-    *)
-    // Matrix mult
-    (*
-    let matA = array2D [ [ 1.0; 2.0 ]; 
-                         [ 1.0; 2.0 ] ]
-    let matB = array2D [ [ 1.0; 2.0 ]; 
-                         [ 1.0; 2.0 ] ]
-    let matC = Array2D.create 2 2 0.0
-    
-    let m2 = metric :> AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyInstantiationResult>
-    // FICHISSIMO: DLL espongono i corpi delle funzioni ReflectedDefinition (libreria di pattern plausibile)
-    let energyLambda2 = m2.Evaluate(new ProfilingResult<EnergyProfilingResult>([]), <@ Patterns.MatrixMult(matA, matB, matC) @>)
-    let instructions2 = m2.Instantiate(energyLambda2, <@ MatrixMult(matA, matB, matC) @>)
-    printf "Number of instruction in the kernel (args = a, b, c): %f\n" instructions2.Result
-    // Testing vector types
-    (*
-    let t = new FSCL.OpenCLVector4D()
-    t.s0
-    t.xw <- [| 0.; 1. |]
-    t.s1230 <- [| 1.;2.;3.;4. |]
-    let g = t.even
-    let g2 = t.odd
-    printfn "%A" argv
-    *)
-    0 // return an integer exit code *)
     0

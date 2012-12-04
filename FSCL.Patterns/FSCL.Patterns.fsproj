@@ -45,16 +45,6 @@
     <None Include="Script.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FSCL.Transformation.Processors\FSCL.Transformation.Processors.fsproj">
-      <Name>FSCL.Transformation.Processors</Name>
-      <Project>{0d9e99ed-50b4-43cb-94e8-e3b62ba8a770}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Transformation\FSCL.Transformation.fsproj">
-      <Name>FSCL.Transformation</Name>
-      <Project>{0860f2a4-632c-40bf-88f8-35ad2c3cc737}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\FSCL\FSCL.fsproj">
       <Name>FSCL</Name>
       <Project>{57a5e768-a0aa-4b4f-b538-2bea1b4e5895}</Project>
