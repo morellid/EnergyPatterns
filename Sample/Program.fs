@@ -117,8 +117,6 @@ let testMatrixMultEnergy() =
     instructionMetric.MaxThread <- (int64)(2 <<< 10)
     instructionMetric.ThreadStep <- (fun i -> i * 2L)
     instructionMetric.PerStepDuration <- 15000
-    for device in ComputePlatform.Platforms.[0].Devices do
-        instructionMetric.Profile(device) |> ignore
 
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
@@ -151,8 +149,6 @@ let testVectorAddEnergy() =
     instructionMetric.MaxThread <- (int64)(2 <<< 10)
     instructionMetric.ThreadStep <- (fun i -> i * 2L)
     instructionMetric.PerStepDuration <- 10000
-    for device in ComputePlatform.Platforms.[0].Devices do
-        instructionMetric.Profile(device) |> ignore
 
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
@@ -176,7 +172,7 @@ let testVectorAddEnergy() =
 
 [<EntryPoint>]
 let main argv =
-    testVectorAddEnergy()
+    testMatrixMultEnergy()
 (*
     // Test 2 ways of getting instruction count    
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
