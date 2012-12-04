@@ -7,8 +7,7 @@ open System
 open Microsoft.FSharp.Reflection
 open EnergyPatterns.RemoteAmmeter
 open System.IO
-open EnergyMetric
-open ExpressionCounter
+open MetricTools
 
 // The below one needs PowerPack :(
 open Microsoft.FSharp.Linq.QuotationEvaluation
@@ -28,7 +27,7 @@ type InstructionEnergyMetric(ammeterIp) =
     let mutable max_thread = 1L
     let mutable instr_step = (fun (i:int) -> i * 2)
     let mutable thread_step = (fun (i:int64) -> i * 2L)
-    let mutable per_step_duration = 0
+    let mutable per_step_duration = 0.0
 
     member val AmmeterIp = ammeterIp with get, set
 
@@ -163,7 +162,7 @@ type InstructionEnergyMetric(ammeterIp) =
                 computeKernel.SetValueArgument(2, currInstr / 2)
 
                 // Run kernel n times to guarantee a total time >= PerStepDuration
-                let (endMessage, time, iterations) = Tools.GetEnergyConsumption (this.AmmeterIp) 20000.0 (fun () ->
+                let (endMessage, time, iterations) = Tools.GetEnergyConsumption (this.AmmeterIp) (this.PerStepDuration) (fun () ->
                     computeQueue.Execute(computeKernel, [| 0L |], [| currThread |], [|  Math.Min(128L, currThread) |], null) 
                     computeQueue.Finish())
 

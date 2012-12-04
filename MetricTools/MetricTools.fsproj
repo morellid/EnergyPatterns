@@ -10,7 +10,7 @@
     <RootNamespace>MetricTools</RootNamespace>
     <AssemblyName>MetricTools</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>EnergyMetricTools</Name>
+    <Name>MetricTools</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -31,6 +31,17 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Release\MetricTools.XML</DocumentationFile>
   </PropertyGroup>
+  <PropertyGroup>
+    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
+  <ItemGroup>
+    <Compile Include="Stack.fs" />
+    <Compile Include="Tools.fs" />
+    <Compile Include="ExpressionCounter.fs" />
+    <Compile Include="MemoryTransfer.Tools.fs" />
+    <Compile Include="MemoryTransfer.Test.fs" />
+  </ItemGroup>
   <ItemGroup>
     <Reference Include="Energon.Extech">
       <HintPath>..\Ammeters\RemoteAmmeter\Energon.Extech.dll</HintPath>
@@ -48,15 +59,17 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
+      <Name>Cloo.VS2010</Name>
+      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\QuotationEvaluation\QuotationEvaluation.fsproj">
+      <Name>QuotationEvaluation</Name>
+      <Project>{4e34127e-86c3-48b8-9e7e-7d7c72dbc856}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Tools.fs" />
-    <None Include="Script.fsx" />
-  </ItemGroup>
-  <PropertyGroup>
-    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
-  </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
