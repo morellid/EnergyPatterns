@@ -9,7 +9,7 @@ open Cloo
 open Microsoft.FSharp.Collections
 open fscl
 open EnergyPatterns.RemoteAmmeter
-open EnergyMetric
+open MetricTools
 open FSCL.KernelExtension
 
 // Example of macro
@@ -116,7 +116,7 @@ let testMatrixMultEnergy() =
     instructionMetric.MinThread <- 1L
     instructionMetric.MaxThread <- (int64)(2 <<< 10)
     instructionMetric.ThreadStep <- (fun i -> i * 2L)
-    instructionMetric.PerStepDuration <- 15000
+    instructionMetric.PerStepDuration <- 15000.0
 
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
@@ -148,7 +148,7 @@ let testVectorAddEnergy() =
     instructionMetric.MinThread <- 64L
     instructionMetric.MaxThread <- (int64)(2 <<< 10)
     instructionMetric.ThreadStep <- (fun i -> i * 2L)
-    instructionMetric.PerStepDuration <- 10000
+    instructionMetric.PerStepDuration <- 10000.0
 
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
