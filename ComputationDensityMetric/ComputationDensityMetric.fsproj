@@ -36,7 +36,6 @@
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
   <ItemGroup>
-    <Compile Include="Tools.fs" />
     <Compile Include="KernelBuilder.fs" />
     <Compile Include="ComputationDensityMetric.fs" />
   </ItemGroup>
@@ -53,6 +52,11 @@
     <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
       <Name>Cloo.VS2010</Name>
       <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\MetricTools\MetricTools.fsproj">
+      <Name>MetricTools</Name>
+      <Project>{cb4c5f5a-cdfd-4372-a565-bc7d2e362e22}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\MetricUtil\MetricBase.fsproj">

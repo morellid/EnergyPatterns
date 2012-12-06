@@ -80,7 +80,7 @@ module internal InstructionCountEstimator =
             Expr.Value(v, t)
         | Patterns.Call(ob, mi, args) ->
             // Check if it is a call to an fscl function
-            if mi.DeclaringType.Name = "fscl" then
+            if mi.DeclaringType.Name = "KernelFunctions" then
                 let placeholder = Expr.Var(GetFSCLPlaceholder(mi))
                 let unfoldIndex = unfoldLoopExpr(args.[0], pars)
                 <@@ (%%placeholder : int[]).[(%%unfoldIndex) : int] @@>

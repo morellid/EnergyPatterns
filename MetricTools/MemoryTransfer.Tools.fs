@@ -5,8 +5,13 @@ open System
 open Microsoft.FSharp.Reflection
 open System.Runtime.InteropServices
 open System.Collections.Generic
+open System.Reflection
+open Microsoft.FSharp.Quotations
 
 type TransferException(msg) =
+    inherit System.Exception(msg)
+    
+type AccessException(msg) =
     inherit System.Exception(msg)
 
 type BufferAccess =
@@ -36,7 +41,7 @@ module internal MemoryUtil =
     extern void RtlMoveMemory(IntPtr dest, IntPtr src, uint32 len);
     [<DllImport("msvcrl.dll")>]
     extern int memcmp(IntPtr ptr1, IntPtr ptr2, int count);
-
+    
 module internal TransferTools =
     let AllocateHostPtr(currSize) =
         ref (Array.zeroCreate<float32>(currSize / sizeof<float32>))

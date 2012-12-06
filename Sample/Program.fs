@@ -7,10 +7,12 @@ open TransferEnergy
 open MetricBase
 open Cloo
 open Microsoft.FSharp.Collections
-open fscl
 open EnergyPatterns.RemoteAmmeter
 open MetricTools
 open FSCL.KernelExtension
+open FSCL.KernelFunctions
+open FSCL.HostFunctions
+open FSCL.Patterns
 
 // Example of macro
 [<ReflectedDefinition>]
@@ -42,7 +44,7 @@ let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[
     let mutable sum = 0.0f
     for r = 0 to filterWidth - 1 do
         for c = 0 to filterWidth - 1 do
-            sum <- filter.[r,c] * block.[local_y + r, local_x + c]
+            sum <- (filter.[r,c]) * (block.[local_y + r, local_x + c])
     output.[yOut,xOut] <- sum
     
 [<Kernel>][<ReflectedDefinition>]
@@ -80,31 +82,10 @@ let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
     c.[x,y] <- accum
     
 [<Kernel>][<ReflectedDefinition>]
-let MatrixMultWithReturn(a: float32[,], b: float32[,]) =
-    let c = Array2D.zeroCreate<float32> (a.GetLength(0)) (b.GetLength(1))
-
-    let x = get_global_id(0)
-    let y = get_global_id(1)
-
-    let mutable accum = 0.0f
-    for k = 0 to a.GetLength(1) - 1 do
-        accum <- accum + (a.[x,k] * b.[k,y])
-    c.[x,y] <- accum
-
-    c
-    
-[<Kernel>][<ReflectedDefinition>]
 let VectorAdd(a: float32[], b: float32[], c: float32[]) =
     let gid = 0
     c.[gid] <- (a.[gid] + b.[gid])
     
-[<Kernel>][<ReflectedDefinition>]
-let VectorAddWithReturn(a: float32[], b: float32[]) =
-    let c = Array.zeroCreate<float32> (a.Length)
-    let gid = get_global_id(0)
-    c.[gid] <- (a.[gid] + b.[gid])
-    c
-
 // Test functions
 let testMatrixMultEnergy() =    
     // Create insturction energy metric
@@ -172,7 +153,6 @@ let testVectorAddEnergy() =
 
 [<EntryPoint>]
 let main argv =
-    testMatrixMultEnergy()
 (*
     // Test 2 ways of getting instruction count    
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
@@ -184,27 +164,29 @@ let main argv =
     //let ev2 = instructionMetric.Evaluate2([], <@ MatrixMult @>)
     let instr = instructionMetric.Instantiate([], ev, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
     //let instr2 = instructionMetric.Instantiate([], ev2, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
+    *)
+    let runner = new KernelRunner()
 
     // Test Vector Add
-    let runner = new KernelRunner()
     let a = Array.create (2 <<< 10) 2.0f 
     let b = Array.create (2 <<< 10) 2.0f
     let c = Array.zeroCreate<float32> (2 <<< 10)
     // 2 ways, but only the first avoid copies of parameters
-    runner.Kernel(<@ VectorAdd @>).WithSize([| a.Length |], [| 128 |]).Run(a, b, c)
-    kernel(VectorAdd)((a, b, c), [| a.Length |], [| 128 |], runner)
+    runner.Run(<@ VectorAdd(a, b, c) @>, [| a.Length |], [| 128 |])
              
     // Test vector reduction 
     let a = Array.create (2 <<< 10) 2
     let b = Array.zeroCreate<int> (128)
     let c = Array.zeroCreate<int> (2 <<< 10)
-    runner.Run(<@ Reduce(a, b, (2 <<< 10), c) @>, [| b.Length |], [| 64 |])
+    runner.Run(<@ Reduce(a, b, a.Length, notused(c)) @>, [| b.Length |], [| 128 |])
     // Other reduction stages
     let mutable outputSize = b.Length / 64
     while outputSize > 64 do
-        runner.Run(<@ Reduce(c, b, outputSize, c) @>, [| outputSize |], [| 64 |])
+        runner.Run(<@ Reduce(c, b, outputSize, notused(c)) @>, [| outputSize |], [| 64 |])
             
-
+    // Test Generic types and operator overloading
+    //runner.Run (<@ a + b @>, [| a.Length |], [| 128 |])
+    (*
     // Test conversion with new pipeline
     //let oldel1 = FSCL.KernelBinding.Compile(<@ MatrixMult @>)
     //let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
