@@ -83,6 +83,11 @@
       <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\FSCL.Patterns\FSCL.Patterns.fsproj">
+      <Name>FSCL.Patterns</Name>
+      <Project>{d31be481-6256-4f6a-a260-7e6c40938028}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\FSCL\FSCL.fsproj">
       <Name>FSCL</Name>
       <Project>{57a5e768-a0aa-4b4f-b538-2bea1b4e5895}</Project>

@@ -83,7 +83,7 @@ type Counter(mi: MethodInfo) =
             Expr.Value(v, t)
         | Patterns.Call(ob, mi, args) ->
             // Check if it is a call to an fscl function
-            if mi.DeclaringType.Name = "fscl" then
+            if mi.DeclaringType.Name = "KernelFunctions" then
                 let placeholder = Expr.Var(this.GetFSCLPlaceholder(mi))
                 let unfoldIndex = this.UnfoldLoopExpr(args.[0])
                 <@@ (%%placeholder : int[]).[(%%unfoldIndex) : int] @@>

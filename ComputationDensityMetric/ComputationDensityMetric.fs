@@ -6,15 +6,19 @@ open Microsoft.FSharp.Quotations
 open System
 open Microsoft.FSharp.Reflection
 open System.IO
-open ExpressionCounter
-open Tools
+open MetricTools
+open MetricTools.MemoryTransfer
+open MetricTools.MemoryAccess
+open System.Reflection
+open System.Collections.Generic
+open System.Runtime.InteropServices
 
 // The below one needs PowerPack :(
 open Microsoft.FSharp.Linq.QuotationEvaluation
 
 type ProfilingResult = (int64 * float) list
-type InstantiationResult = ComputeDevice
-type EvaluationResult = Expr
+type InstantiationResult = int
+type EvaluationResult = (Expr * Dictionary<ParameterInfo, BufferAccess>)
 // Local and global sizes
 type EnergyCustomData = int array * int array
 
@@ -189,83 +193,115 @@ type ComputationDensityMetric() =
         for transferSize in transferCount do
             // For each instr count run the test
             let mutable thresholdFound = false
-            let mutable currInstr = this.MaxInstr / 2
-            let mutable prevInstr = 0
+            let currInstr = ref (this.MaxInstr / 2)
+            let prevInstr = ref 0
 
             // Binary search
             while not thresholdFound do         
                 let currThread = this.MaxThread
                 let executionResult = List.map(fun (d, c) ->
-                    this.RunKernel(transferSize, currInstr, currThread, d, c)) [(gpu, gpuContext); (apu, apuContext)]
+                    this.RunKernel(transferSize, !currInstr, currThread, d, c)) [(gpu, gpuContext); (apu, apuContext)]
 
                 let ratio = executionResult.[0] / executionResult.[1]
                 if (Math.Abs((double) ratio - 1.0) < 0.01) then
                     thresholdFound <- true
                 else
                     if ratio > 1.0 then
-                        prevInstr <- currInstr
-                        currInstr <- (currInstr + this.MaxInstr) / 2
+                        prevInstr := !currInstr
+                        currInstr := (!currInstr + this.MaxInstr) / 2
                     else
-                        prevInstr <- currInstr
-                        currInstr <- (currInstr + prevInstr) / 2
+                        prevInstr := !currInstr
+                        currInstr := (!currInstr + !prevInstr) / 2
 
-            let threshold = (double)currInstr / (double)transferSize
+            let threshold = (double)!currInstr / (double)transferSize
             result <- result @ [(transferSize, threshold)]
 
         result
-
                                 
     override this.Evaluate(profiling, expr:Expr) =
         let kernel = Tools.KernelTools.ExtractKernelDefinition(expr)
         let counter = new Counter(kernel)
         let instructions = counter.Count(this.OnNewOperation counter, true)
-        instructions
+        let access = AccessAnalyzer.Analyze(kernel)
+        (instructions, access)
             
     override this.Instantiate(profiling, evaluation, invocation, (globalSize, localSize)) =
-        // Evaluation is something like "<compute instruction>"
-        // To compute instructions we bind the variables that are free in <compute instruction>
-        let (methodInfo, args) = MetricBase.Tools.KernelTools.ExtractKernelInvocation(invocation)
-        let parameters = methodInfo.GetParameters()
-        let mutable freeVars = evaluation.GetFreeVars()
-        // Assign values to parameter references
-        let mutable finalExpr = evaluation
-        for var in freeVars do
-            let pIndex = Array.tryFindIndex (fun (p:Reflection.ParameterInfo) -> p.Name = var.Name) parameters
-            if pIndex.IsSome then
-                finalExpr <- Expr.Let(var, args.[pIndex.Value], finalExpr)
-                // Remove var free ones                
-                freeVars <- Seq.skip 1 freeVars
+        match evaluation with
+        | instructions, access ->
+            // Evaluation is something like "<compute instruction>"
+            // To compute instructions we bind the variables that are free in <compute instruction>
+            let (methodInfo, args) = MetricBase.Tools.KernelTools.ExtractKernelInvocation(invocation)
+            let parameters = methodInfo.GetParameters()
+            let mutable freeVars = instructions.GetFreeVars()
+            // Assign values to parameter references
+            let mutable finalExpr = instructions
+            for var in freeVars do
+                let pIndex = Array.tryFindIndex (fun (p:Reflection.ParameterInfo) -> p.Name = var.Name) parameters
+                if pIndex.IsSome then
+                    finalExpr <- Expr.Let(var, args.[pIndex.Value], finalExpr)
+                    // Remove var free ones                
+                    freeVars <- Seq.skip 1 freeVars
                                       
-        // Assign values to fscl call placeholders
-        let groups = Array.mapi (fun i el ->  el / localSize.[i]) globalSize
-        for var in freeVars do
-            if var.Name.StartsWith "get_global_id" then
-                finalExpr <- Expr.Let(var, <@ Array.zeroCreate<int> 3 @>, finalExpr)
-            if var.Name.StartsWith "get_local_id" then
-                finalExpr <- Expr.Let(var, <@ Array.zeroCreate<int> 3 @>, finalExpr)
-            if var.Name.StartsWith "get_global_size" then
-                finalExpr <- Expr.Let(var, <@ globalSize @>, finalExpr)
-            if var.Name.StartsWith "get_local_size" then
-                finalExpr <- Expr.Let(var, <@ localSize @>, finalExpr)
-            if var.Name.StartsWith "get_num_groups" then 
-                finalExpr <- Expr.Let(var, <@ groups @>, finalExpr)
-            if var.Name.StartsWith "get_work_dim" then 
-                finalExpr <- Expr.Let(var, <@ groups.Rank @>, finalExpr)           
+            // Assign values to fscl call placeholders
+            let groups = Array.mapi (fun i el ->  el / localSize.[i]) globalSize
+            for var in freeVars do
+                if var.Name.StartsWith "get_global_id" then
+                    finalExpr <- Expr.Let(var, <@ Array.zeroCreate<int> 3 @>, finalExpr)
+                if var.Name.StartsWith "get_local_id" then
+                    finalExpr <- Expr.Let(var, <@ Array.zeroCreate<int> 3 @>, finalExpr)
+                if var.Name.StartsWith "get_global_size" then
+                    finalExpr <- Expr.Let(var, <@ globalSize @>, finalExpr)
+                if var.Name.StartsWith "get_local_size" then
+                    finalExpr <- Expr.Let(var, <@ localSize @>, finalExpr)
+                if var.Name.StartsWith "get_num_groups" then 
+                    finalExpr <- Expr.Let(var, <@ groups @>, finalExpr)
+                if var.Name.StartsWith "get_work_dim" then 
+                    finalExpr <- Expr.Let(var, <@ groups.Rank @>, finalExpr)           
                 
-        let result = finalExpr.EvalUntyped()
+            let result = finalExpr.EvalUntyped()
+            let actualInstructions = result :?> double
 
-        result :?> double) [ instructions; reads; writes ]
-        
+            // Determine transfer size
+            let parameters = methodInfo.GetParameters()
+            let bytesToKernel = ref 0
+            let bytesFromKernel = ref 0
+            Array.iteri (fun i (p:ParameterInfo) ->
+                if p.ParameterType.IsArray then
+                    let v = args.[i].EvalUntyped()
+                    // Get length
+                    let elements = p.ParameterType.GetProperty("Length").GetValue(v) :?> int
+                    match access.[p] with
+                    | READ_ONLY 
+                    | READ_WRITE ->
+                        bytesToKernel := !bytesToKernel + (elements * Marshal.SizeOf(p.ParameterType.GetElementType()))
+                    | WRITE_ONLY
+                    | READ_WRITE ->
+                        bytesFromKernel := !bytesFromKernel + (elements * Marshal.SizeOf(p.ParameterType.GetElementType()))
+                    | NO_ACCESS ->
+                        ()) parameters
+                
             // Dump on file if enable
-            let mutable content = String.concat "," (Seq.ofList (List.mapi (fun i (e:Expr) -> "Parameter" + i.ToString()) args)) + ";\n"
-            content <- content + String.concat "," (Seq.ofList (List.map (fun (e:Expr) -> e.ToString()) args)) + ";\n"
-            content <- content + String.concat "," (seq { for i = 0 to globalSize.Length - 1 do yield "Global size " + i.ToString() }) + ";\n"
-            content <- content + String.concat "," (seq { for i = 0 to globalSize.Length - 1 do yield globalSize.[i].ToString() }) + ";\n"
-            content <- content + String.concat "," (seq { for i = 0 to localSize.Length - 1 do yield "Local size " + i.ToString() }) + ";\n"
-            content <- content + String.concat "," (seq { for i = 0 to localSize.Length - 1 do yield localSize.[i].ToString() }) + ";\n"
-            content <- content + "Instructions,Reads,Writes;\n"
-            content <- content + result.[0].ToString() + "," + result.[1].ToString() + "," + result.[2].ToString() + ";\n"
+            let mutable content = "Instructions;BytesTransferredToKernel;BytesTransferredFromKernel\n"
+            content <- content + actualInstructions.ToString() + ";" + (!bytesToKernel).ToString() + ";" + (!bytesFromKernel).ToString() + "\n"
             this.Dump("Instantiate-" + this.GetType().Name + "-" + methodInfo.Name + ".csv", content)
 
-            (result.[0], result.[1], result.[2])
+            // Check the threshold for the given transfer size
+            let mutable index = 0
+            let mutable found = false
+            while (not found) && (index < profiling.Length) do
+                let transferSize, _ = profiling.[index]
+                if transferSize >= (int64)!bytesToKernel + (int64)!bytesFromKernel then
+                    found <- true
+                else
+                    index <- index + 1
+            if not found then
+                index <- profiling.Length - 1
+
+            // Return the best device
+            let _, th = profiling.[index]
+            if actualInstructions > th then
+                0
+            else
+                1
+                
             

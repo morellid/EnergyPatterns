@@ -41,6 +41,8 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FSCL.KernelFunctions.fs" />
+    <Compile Include="FSCL.HostFunctions.fs" />
     <Compile Include="FSCL.fs" />
     <None Include="Script.fsx" />
     <Compile Include="FSCLException.fs" />

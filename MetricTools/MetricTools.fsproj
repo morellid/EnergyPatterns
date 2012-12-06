@@ -41,6 +41,7 @@
     <Compile Include="ExpressionCounter.fs" />
     <Compile Include="MemoryTransfer.Tools.fs" />
     <Compile Include="MemoryTransfer.Test.fs" />
+    <Compile Include="MemoryAccess.Analysis.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Energon.Extech">
