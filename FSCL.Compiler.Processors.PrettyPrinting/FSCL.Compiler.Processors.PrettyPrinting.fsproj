@@ -54,6 +54,7 @@
     <Compile Include="DeclarationPrinter.fs" />
     <Compile Include="SequentialPrinter.fs" />
     <Compile Include="IntegerRangeLoopPrinter.fs" />
+    <Compile Include="ForInPrinter.fs" />
     <Compile Include="ArrayAccessPrinter.fs" />
   </ItemGroup>
   <ItemGroup>
