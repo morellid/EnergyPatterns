@@ -140,13 +140,14 @@ type ComputationDensityMetric() =
         computeProgram.Build(devices, "", null, System.IntPtr.Zero)
         let computeKernel = computeProgram.CreateKernel("run")
         let computeQueue = new ComputeCommandQueue(context, device, ComputeCommandQueueFlags.OutOfOrderExecution)
-        let inputPtr = Array.create ((int)transferSize / sizeof<float32>) 1.0f
-        let inputBuffer = new ComputeBuffer<float32>(context, ComputeMemoryFlags.ReadOnly, transferSize)
-        let outputBuffer = new ComputeBuffer<float32>(context, ComputeMemoryFlags.WriteOnly, 4L)
+        let inputPtr = Array.create ((int)transferSize / sizeof<float32>) 5.0f
+        let inputBuffer = new ComputeBuffer<float32>(context, ComputeMemoryFlags.ReadOnly, transferSize / (int64 sizeof<float32>))
+        let outputBuffer = new ComputeBuffer<float32>(context, ComputeMemoryFlags.WriteOnly, 1L)
         computeKernel.SetMemoryArgument(0, inputBuffer)
         computeKernel.SetMemoryArgument(1, outputBuffer)
         // Only for loop kernel
         computeKernel.SetValueArgument(2, currInstr / 2)
+        computeKernel.SetValueArgument(3, 0)
 
         // Run kernel n times to guarantee a total time >= PerStepDuration
         let (_, time, iterations) = Tools.ExcuteFor (this.PerStepDuration) (fun () -> "OK") (fun () -> ()) (fun () ->
@@ -193,8 +194,9 @@ type ComputationDensityMetric() =
         for transferSize in transferCount do
             // For each instr count run the test
             let mutable thresholdFound = false
-            let currInstr = ref (this.MaxInstr / 2)
-            let prevInstr = ref 0
+            let rightInstr = ref (this.MaxInstr)
+            let leftInstr = ref 0
+            let currInstr = ref ((!rightInstr + !leftInstr) / 2)
 
             // Binary search
             while not thresholdFound do         
@@ -203,15 +205,14 @@ type ComputationDensityMetric() =
                     this.RunKernel(transferSize, !currInstr, currThread, d, c)) [(gpu, gpuContext); (apu, apuContext)]
 
                 let ratio = executionResult.[0] / executionResult.[1]
-                if (Math.Abs((double) ratio - 1.0) < 0.01) then
+                if (Math.Abs((double) ratio - 1.0) < 0.01) || (!currInstr = 1) || (!currInstr = this.MaxInstr) then
                     thresholdFound <- true
                 else
                     if ratio > 1.0 then
-                        prevInstr := !currInstr
-                        currInstr := (!currInstr + this.MaxInstr) / 2
+                        leftInstr := !currInstr
                     else
-                        prevInstr := !currInstr
-                        currInstr := (!currInstr + !prevInstr) / 2
+                        rightInstr := !currInstr
+                    currInstr := ((!rightInstr + !leftInstr) / 2)
 
             let threshold = (double)!currInstr / (double)transferSize
             result <- result @ [(transferSize, threshold)]

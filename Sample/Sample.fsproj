@@ -63,6 +63,11 @@
       <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\ComputationDensityMetric\ComputationDensityMetric.fsproj">
+      <Name>ComputationDensityMetric</Name>
+      <Project>{5ba7e39a-a915-4397-a611-0c0c00a860dd}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler.Processors.Parsing\FSCL.Compiler.Processors.Parsing.fsproj">
       <Name>FSCL.Compiler.Processors.Parsing</Name>
       <Project>{a42da267-4d0e-4f14-a7e0-f2f9ab587005}</Project>
