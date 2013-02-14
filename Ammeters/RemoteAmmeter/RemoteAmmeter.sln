@@ -7,6 +7,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Extech", "..\..\Energon\Ext
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Measuring", "..\..\Energon\Measuring\Measuring.fsproj", "{A4FD1437-9D0E-45AC-A073-D2A444D23A1A}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Phidgets", "..\..\Energon\Phidgets\Phidgets.fsproj", "{04873604-574D-4BFB-B12A-E231D536B60E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,6 +49,16 @@ Global
 		{A4FD1437-9D0E-45AC-A073-D2A444D23A1A}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{A4FD1437-9D0E-45AC-A073-D2A444D23A1A}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{A4FD1437-9D0E-45AC-A073-D2A444D23A1A}.Release|x86.ActiveCfg = Release|Any CPU
+		{04873604-574D-4BFB-B12A-E231D536B60E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04873604-574D-4BFB-B12A-E231D536B60E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04873604-574D-4BFB-B12A-E231D536B60E}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{04873604-574D-4BFB-B12A-E231D536B60E}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{04873604-574D-4BFB-B12A-E231D536B60E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{04873604-574D-4BFB-B12A-E231D536B60E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04873604-574D-4BFB-B12A-E231D536B60E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{04873604-574D-4BFB-B12A-E231D536B60E}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{04873604-574D-4BFB-B12A-E231D536B60E}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{04873604-574D-4BFB-B12A-E231D536B60E}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

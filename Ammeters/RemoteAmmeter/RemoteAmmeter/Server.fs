@@ -1,7 +1,8 @@
 ﻿namespace EnergyPatterns.RemoteAmmeter
 
 open Energon.Measuring
-open Energon.Extech380803
+open Phidgets30A
+//open Energon.Extech380803
 
 open System
 open System.Net
@@ -10,13 +11,13 @@ open Energon.Measuring
 open System.Collections.Generic
 
 
-type WebListener(startCallback:(unit -> string), stopCallback:(unit -> string)) =
-  let address = "http://+:80/Temporary_Listen_Addresses/"
+type WebListener(startCallback:(unit -> string), stopCallback:(unit -> string), uid:string) =
+  let address = System.String.Format("http://+:80/Temporary_Listen_Addresses/{0}/", uid)
   let listener = new System.Net.HttpListener()
   let rec GetContextCallback(result:IAsyncResult) =
     let context = listener.EndGetContext(result)
     let request = context.Request
-    let relPath = request.Url.PathAndQuery.Substring("/Temporary_Listen_Addresses/".Length )
+    let relPath = request.Url.PathAndQuery.Substring(System.String.Format("/Temporary_Listen_Addresses/{0}/", uid).Length )
     let spl = List.toArray ["/"; "?"]
     let tags = relPath.Split(spl, StringSplitOptions.RemoveEmptyEntries) |> Array.map (fun (s:string) -> 
         printf "%s\n" s |> ignore
@@ -47,8 +48,11 @@ type WebListener(startCallback:(unit -> string), stopCallback:(unit -> string)) 
 
 
 /// <summary>An helper class that handles an experiment where the load is run remotely, with remote sensors</summary>
-type Server() = 
-    let ammeter = new Extech380803Sensor("Extech", DataType.Watt, 2.)
+type Server(uid:string) = 
+    //let ammeter = new Extech380803Sensor("Extech", DataType.Watt, 2.)    
+    let ammeter = 
+        openPhidgets()
+        new AmmeterSensor("PhidgetsVA", 0, ifkit, 10.)
 
     let start() = 
         printf "received start/n"
@@ -58,10 +62,11 @@ type Server() =
     let stop() =
         printf "received stop/n"
         ammeter.Stop()
-        let avg = Seq.averageBy (fun (r:Reading) -> float r.Value ) ammeter.Results
+        // if using phidgets multiply by 220
+        let avg = Seq.averageBy (fun (r:Reading) -> (float r.Value) * 220. ) ammeter.Results
         System.String.Format("{0}", avg)
 
-    let w = new WebListener(start, stop)
+    let w = new WebListener(start, stop, uid)
 
     member x.Start() =
         w.start()
