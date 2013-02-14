@@ -9,7 +9,7 @@ type CallPrinter() =
             match expr with
             | Patterns.Call (o, mi, a) ->
                 let args = String.concat ", " (List.map (fun (e:Expr) -> engine.Process(e)) a)
-                if mi.DeclaringType.Name = "fscl" &&  mi.Name = "barrier" then
+                if mi.DeclaringType.Name = "KernelFunctions" &&  mi.Name = "barrier" then
                     // the function is defined in FSCL
                     Some(mi.Name + "(" + args + ");")
                 else

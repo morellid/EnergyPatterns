@@ -25,6 +25,7 @@ type KernelCompilerTools() =
         secondTransformation.TransformationProcessors.Add(new ReturnLifting())
 
         let printer = new PrettyPrinterStep()
+        printer.BodyPrettyPrinterProcessors.Add(new ForInPrinter())
         printer.SignaturePrettyPrinterProcessors.Add(new SignaturePrinter())
         printer.TypePrettyPrinterProcessors.Add(new TypePrinter())
         // ArrayAccess -> ArithmeticOperation -> Call order is important (to be fixed)

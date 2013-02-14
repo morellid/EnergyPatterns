@@ -10,9 +10,6 @@ type UnionCasePrinter() =
         member this.Handle(e, engine:PrettyPrinterStep) =
             match e with
             | Patterns.NewUnionCase(ui, args) ->
-                if ui.DeclaringType.DeclaringType.Name = "fscl" then
-                    Some(ui.Name)
-                else
-                    None
+                Some(ui.Name)
             | _ ->
                 None

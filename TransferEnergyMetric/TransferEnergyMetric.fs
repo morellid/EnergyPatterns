@@ -15,6 +15,7 @@ open TransferEnergy.Tools.TransferTools
 open EnergyPatterns.RemoteAmmeter
 open System.Runtime.InteropServices
 open System.IO
+open MetricTools
 
 type EnergyProfilingResult = (int * double) list
 type EnergyInstantiationResult = double
@@ -27,7 +28,7 @@ type TransferEnergyMetric(ammeterIp:string) =
     let mutable min_size = 1
     let mutable max_size = 1
     let mutable step = 1
-    let mutable per_step_duration = 0
+    let mutable per_step_duration = 0.0
     let mutable validate = false
     let mutable sourceInfo = new Data.TransferEndpoint()
     let mutable destInfo = new Data.TransferEndpoint()
@@ -68,9 +69,6 @@ type TransferEnergyMetric(ammeterIp:string) =
         and set valid = validate <- valid
 
     override this.Profile(device:ComputeDevice) =
-        // Create ammeter client
-        let client = new Client(this.AmmeterIp)
-
         // Create result
         let mutable result = []
 
@@ -93,67 +91,36 @@ type TransferEnergyMetric(ammeterIp:string) =
         // For each instr count run the test of allocation, initialization and transferring
         for currSize in bufferSizes do
             // Allocate and init src, allocate dst
-            let mutable srcPtr = None
-            let mutable dstPtr = None
-            let mutable srcBuffer = None
-            let mutable dstBuffer = None
+            let srcPtr = ref None
+            let dstPtr = ref None
+            let srcBuffer = ref None
+            let dstBuffer = ref None
             if this.SrcInfo.IsHostPtr then
-                srcPtr <- Some(AllocateHostPtr(currSize))
-                do InitializeHostPtr(currSize, srcPtr.Value)
+                srcPtr := Some(AllocateHostPtr(currSize))
+                do InitializeHostPtr(currSize, (!srcPtr).Value)
             else
-                srcBuffer <- Some(AllocateBuffer(computeContext, currSize, this.SrcInfo))
-                do InitializeBuffer(computeQueue, currSize, this.SrcInfo, srcBuffer.Value)
+                srcBuffer := Some(AllocateBuffer(computeContext, currSize, this.SrcInfo))
+                do InitializeBuffer(computeQueue, currSize, this.SrcInfo, (!srcBuffer).Value)
             if this.DstInfo.IsHostPtr then
-                dstPtr <- Some(AllocateHostPtr(currSize))
+                dstPtr := Some(AllocateHostPtr(currSize))
             else
-                dstBuffer <- Some(AllocateBuffer(computeContext, currSize, this.DstInfo))
+                dstBuffer := Some(AllocateBuffer(computeContext, currSize, this.DstInfo))
 
-            // Determine number of iterations to guarantee per step duration            
-            let timer = System.Diagnostics.Stopwatch()
-            let mutable testIterations = 1
-            let mutable reliableTest = false
-            while (not reliableTest) do
-                timer.Reset()
-                timer.Start()
-                for i in 0 .. testIterations do
-                    if this.SrcInfo.IsHostPtr then
-                        if this.DstInfo.IsHostPtr then
-                            HostPtrToHostPtr(currSize, this.Validate, srcPtr.Value, dstPtr.Value)
-                        else
-                            HostPtrToBuffer(computeContext, computeQueue, currSize, this.Validate, this.DstInfo, srcPtr.Value, dstBuffer.Value)
-                    elif this.DstInfo.IsHostPtr then
-                        BufferToHostPtr(computeContext, computeQueue, currSize, this.Validate, this.SrcInfo, srcBuffer.Value, dstPtr.Value)  
-                    else  
-                        BufferToBuffer(computeContext, computeQueue, currSize, this.Validate, this.SrcInfo, this.DstInfo, srcBuffer.Value, dstBuffer.Value)       
-                timer.Stop()
-
-                if (timer.ElapsedMilliseconds > 100L) then
-                    reliableTest <- true
-                else
-                    testIterations <- testIterations * 10
-                            
-            // Execute profiling (excluding allocation)
-            let iterations = (int) ((double)this.PerStepDuration * (double)testIterations / ((double)timer.ElapsedMilliseconds))
-                
-            timer.Reset()
-            let startResult = client.start() 
-            timer.Start()                              
-            for i in 0 .. iterations - 1 do     
+            // Run kernel n times to guarantee a total time >= PerStepDuration
+            let (endMessage, time, iterations) = Tools.GetEnergyConsumption (this.AmmeterIp) (this.PerStepDuration) (fun () ->
                 if this.SrcInfo.IsHostPtr then
                     if this.DstInfo.IsHostPtr then
-                        HostPtrToHostPtr(currSize, this.Validate, srcPtr.Value, dstPtr.Value)
+                        HostPtrToHostPtr(currSize, this.Validate, (!srcPtr).Value, (!dstPtr).Value)
                     else
-                        HostPtrToBuffer(computeContext, computeQueue, currSize, this.Validate, this.DstInfo, srcPtr.Value, dstBuffer.Value)
+                        HostPtrToBuffer(computeContext, computeQueue, currSize, this.Validate, this.DstInfo, (!srcPtr).Value, (!dstBuffer).Value)
                 elif this.DstInfo.IsHostPtr then
-                    BufferToHostPtr(computeContext, computeQueue, currSize, this.Validate, this.SrcInfo, srcBuffer.Value, dstPtr.Value)  
+                    BufferToHostPtr(computeContext, computeQueue, currSize, this.Validate, this.SrcInfo, (!srcBuffer).Value, (!dstPtr).Value)  
                 else  
-                    BufferToBuffer(computeContext, computeQueue, currSize, this.Validate, this.SrcInfo, this.DstInfo, srcBuffer.Value, dstBuffer.Value)       
-            timer.Stop()
-            let endResult = client.stop()
+                    BufferToBuffer(computeContext, computeQueue, currSize, this.Validate, this.SrcInfo, this.DstInfo, (!srcBuffer).Value, (!dstBuffer).Value))    
                 
             // Calculate energy per byte transferred
-            let avgEnergy = Double.Parse(endResult.Replace(",", "."))
-            let energyPerByte = ((avgEnergy / 1000.0) * (double)timer.ElapsedMilliseconds) / ((double)currSize)
+            let avgEnergy = Double.Parse(endMessage.Replace(",", "."))
+            let energyPerByte = ((avgEnergy / 1000.0) * (double)time) / ((double)currSize)
             result <- result @ [ (currSize, energyPerByte) ]
                 
         // Dump on file if enable

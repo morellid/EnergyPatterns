@@ -39,7 +39,7 @@ type SignaturePrinter() =
                  else
                     engine.Process(p.ParameterType) + " " + p.Name) kernelParams
             
-            let signature = Some("kernel " + signature.Name + "(" + (String.concat ", " paramsPrint) + ")")
+            let signature = Some("kernel void " + signature.Name + "(" + (String.concat ", " paramsPrint) + ")")
             signature
 
            

@@ -7,16 +7,17 @@ open TransferEnergy
 open MetricBase
 open Cloo
 open Microsoft.FSharp.Collections
-open fscl
 open EnergyPatterns.RemoteAmmeter
-open EnergyMetric
+open MetricTools
 open FSCL.KernelExtension
+open FSCL.KernelFunctions
+open FSCL.HostFunctions
 
 // Example of macro
 [<ReflectedDefinition>]
 let filterWidth = 3
 
-[<ReflectedDefinition>]
+[<Kernel>][<ReflectedDefinition>]
 let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[,], [<Local>]block:float32[,]) =
     let output_width = get_global_size(0)
     let input_width = output_width + filterWidth - 1
@@ -42,7 +43,7 @@ let Convolution(input:float32[,], [<Constant>]filter:float32[,], output:float32[
     let mutable sum = 0.0f
     for r = 0 to filterWidth - 1 do
         for c = 0 to filterWidth - 1 do
-            sum <- filter.[r,c] * block.[local_y + r, local_x + c]
+            sum <- sum + filter.[r,c] * block.[local_y + r, local_x + c]
     output.[yOut,xOut] <- sum
     
 [<Kernel>][<ReflectedDefinition>]
@@ -92,19 +93,12 @@ let MatrixMultWithReturn(a: float32[,], b: float32[,]) =
     c.[x,y] <- accum
 
     c
-    
+        
 [<Kernel>][<ReflectedDefinition>]
 let VectorAdd(a: float32[], b: float32[], c: float32[]) =
-    let gid = 0
-    c.[gid] <- (a.[gid] + b.[gid])
-    
-[<Kernel>][<ReflectedDefinition>]
-let VectorAddWithReturn(a: float32[], b: float32[]) =
-    let c = Array.zeroCreate<float32> (a.Length)
     let gid = get_global_id(0)
     c.[gid] <- (a.[gid] + b.[gid])
-    c
-
+    
 // Test functions
 let testMatrixMultEnergy() =    
     // Create insturction energy metric
@@ -116,9 +110,7 @@ let testMatrixMultEnergy() =
     instructionMetric.MinThread <- 1L
     instructionMetric.MaxThread <- (int64)(2 <<< 10)
     instructionMetric.ThreadStep <- (fun i -> i * 2L)
-    instructionMetric.PerStepDuration <- 15000
-    for device in ComputePlatform.Platforms.[0].Devices do
-        instructionMetric.Profile(device) |> ignore
+    instructionMetric.PerStepDuration <- 15000.0
 
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
@@ -150,9 +142,7 @@ let testVectorAddEnergy() =
     instructionMetric.MinThread <- 64L
     instructionMetric.MaxThread <- (int64)(2 <<< 10)
     instructionMetric.ThreadStep <- (fun i -> i * 2L)
-    instructionMetric.PerStepDuration <- 10000
-    for device in ComputePlatform.Platforms.[0].Devices do
-        instructionMetric.Profile(device) |> ignore
+    instructionMetric.PerStepDuration <- 10000.0
 
     let compiler = new KernelCompiler(instructionMetric)
     let runner = new KernelRunner(compiler)
@@ -176,7 +166,17 @@ let testVectorAddEnergy() =
 
 [<EntryPoint>]
 let main argv =
-    testVectorAddEnergy()
+    let cd = new ComputationDensity.ComputationDensityMetric()
+    cd.MaxThread <- 32L * 64L
+    cd.DumpFolder <- Some("Dump")
+    cd.InstrStep <- (fun i -> i * 2)
+    cd.MaxInstr <- (16 <<< 10)
+    cd.MinTransfer <- (512L <<< 10)
+    cd.MaxTransfer <- (32L <<< 20)
+    cd.TransferStep <- (fun i -> i * 2L)
+    cd.PerStepDuration <- 2000.0
+    let res = cd.Profile([ComputePlatform.Platforms.[0].Devices.[0]; ComputePlatform.Platforms.[0].Devices.[1]])
+
 (*
     // Test 2 ways of getting instruction count    
     let instructionMetric = InstructionEnergyMetric("131.114.88.115") 
@@ -188,60 +188,39 @@ let main argv =
     //let ev2 = instructionMetric.Evaluate2([], <@ MatrixMult @>)
     let instr = instructionMetric.Instantiate([], ev, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
     //let instr2 = instructionMetric.Instantiate([], ev2, <@ MatrixMult(matA, matB, matC) @>, ([| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |]))
-
-    // Test Vector Add
+    *)
     let runner = new KernelRunner()
+    // Test Vector Add
+    (*
     let a = Array.create (2 <<< 10) 2.0f 
     let b = Array.create (2 <<< 10) 2.0f
     let c = Array.zeroCreate<float32> (2 <<< 10)
     // 2 ways, but only the first avoid copies of parameters
-    runner.Kernel(<@ VectorAdd @>).WithSize([| a.Length |], [| 128 |]).Run(a, b, c)
-    kernel(VectorAdd)((a, b, c), [| a.Length |], [| 128 |], runner)
-             
-    // Test vector reduction 
-    let a = Array.create (2 <<< 10) 2
-    let b = Array.zeroCreate<int> (128)
-    let c = Array.zeroCreate<int> (2 <<< 10)
-    runner.Run(<@ Reduce(a, b, (2 <<< 10), c) @>, [| b.Length |], [| 64 |])
-    // Other reduction stages
-    let mutable outputSize = b.Length / 64
-    while outputSize > 64 do
-        runner.Run(<@ Reduce(c, b, outputSize, c) @>, [| outputSize |], [| 64 |])
+    runner.Run(<@ VectorAdd(a, b, c) @>, [| a.Length |], [| 128 |])
             
-
-    // Test conversion with new pipeline
-    //let oldel1 = FSCL.KernelBinding.Compile(<@ MatrixMult @>)
-    //let oldel = FSCL.KernelBinding.Compile(<@ Reduce @>)
-        
-    // Dump memory transfer energy profiling
-    let transferMetric = TransferEnergyMetric("131.114.88.115") 
-    transferMetric.Validate <- true
-    transferMetric.DumpFolder <- Some("Dump")
-    transferMetric.MinSize <- (1 <<< 10)
-    transferMetric.MaxSize <- (32 <<< 20)
-    transferMetric.Step <- (1 <<< 20)
-    transferMetric.PerStepDuration <- 20000
-    transferMetric.SrcInfo <- TransferEnergy.Data.TransferEndpoint()
-    transferMetric.DstInfo <- TransferEnergy.Data.TransferEndpoint()
-    transferMetric.SrcInfo.IsHostPtr <- true
-    transferMetric.DstInfo.IsHostPtr <- false
-    for device in ComputePlatform.Platforms.[0].Devices do
-        transferMetric.Profile(device) |> ignore
-        
-    // Test vector addition
-    
-               
-    // Test vector reduction
-    let redA = Array.create 1024 10
-    let redB = Array.zeroCreate<int> 128
-    let redC = Array.zeroCreate<int> 1024
-    runner.Run(<@ Reduce(redA, redB, 1024, redC) @>, [| 1024 |], [| 128 |])
-
     // Test matrix multiplication
     let matA = Array2D.create 64 64 2.0f 
     let matB = Array2D.create 64 64 2.0f
     let matC = Array2D.zeroCreate<float32> 64 64
-    runner.Run(<@ MatrixMult(matA, matB, matC) @>, 
-               [| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |])
-    *)
+    runner.Run(<@ MatrixMult(matA, matB, matC) @>, [| matA.GetLength(0); matA.GetLength(1) |], [| 8; 8 |])
+             *)
+    // Test vector reduction 
+    let a = Array.create (2 <<< 10) 2
+    let b = Array.zeroCreate<int> (128)
+    let c = Array.zeroCreate<int> (a.Length / 2 / 128)
+    let mutable outputSize = c.Length
+    runner.Run(<@ Reduce(a, b, a.Length, notused(c)) @>, [| a.Length / 2 |], [| 128 |])
+    // Other reduction stages
+    while outputSize > 2 do
+        runner.Run(<@ Reduce(notused(c), b, outputSize, notused(c)) @>, [| outputSize |], [| System.Math.Min(outputSize, 64) |])
+        outputSize <- outputSize / 2 / 128
+    runner.Read(<@ c @>)
+            
+    // Test convolution
+    let matA = Array2D.create 66 66 1.0f 
+    let matF = Array2D.create filterWidth filterWidth 2.0f
+    let matC = Array2D.zeroCreate<float32> (matA.GetLength(0) - filterWidth + 1) (matA.GetLength(1) - filterWidth + 1)
+    let block = Array2D.zeroCreate<float32> (8 - filterWidth + 1) (8 - filterWidth + 1)
+    runner.Run(<@ Convolution(matA, matF, matC, block) @>, [| matC.GetLength(0); matC.GetLength(1) |], [| 8; 8 |])
+
     0

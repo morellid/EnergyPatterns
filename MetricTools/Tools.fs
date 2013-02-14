@@ -1,4 +1,4 @@
-﻿namespace EnergyMetric
+﻿namespace MetricTools
 
 open EnergyPatterns.RemoteAmmeter
 open System.Diagnostics
