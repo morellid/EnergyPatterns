@@ -50,11 +50,15 @@
     <None Include="test.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Energon\Phidgets\Phidgets.fsproj">
-      <Name>Phidgets</Name>
-      <Project>{04873604-574d-4bfb-b12a-e231d536b60e}</Project>
-      <Private>True</Private>
-    </ProjectReference>
+    <Reference Include="Energon.Extech">
+      <HintPath>..\Energon.Extech.dll</HintPath>
+    </Reference>
+    <Reference Include="Energon.Measuring">
+      <HintPath>..\Energon.Measuring.dll</HintPath>
+    </Reference>
+    <Reference Include="Energon.Phidgets">
+      <HintPath>..\Energon.Phidgets.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core" />
     <Reference Include="Phidget21.NET">
@@ -63,16 +67,6 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-    <ProjectReference Include="..\..\..\Energon\Extech\Extech.fsproj">
-      <Name>Extech</Name>
-      <Project>{cae59e8e-d0a1-46a2-8e6d-f2cc880a97a1}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\..\Energon\Measuring\Measuring.fsproj">
-      <Name>Measuring</Name>
-      <Project>{a4fd1437-9d0e-45ac-a073-d2a444d23a1a}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <Reference Include="System.Web" />
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
