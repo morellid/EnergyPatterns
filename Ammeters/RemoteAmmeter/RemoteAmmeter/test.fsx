@@ -11,7 +11,9 @@ open EnergyPatterns.RemoteAmmeter
 new Server("99") // workaround...
 
 let s = new Server("1")
+
 s.Start()
+
 // now you can run experiments..
 
 // when all the experiments are done, close the server:
